@@ -60,7 +60,7 @@ function isAdminEmail(email) {
 // Must run after auth(). Only the account whose email matches ADMIN_EMAIL
 // in the server's .env can pass this — not just whoever signed up first.
 function requireAdmin(req, res, next) {
-  const u = db.prepare('SELECT email FROM users WHERE id=?').get(req.userId);
+  const u = db.findUserById(req.userId);
   if (!u || !isAdminEmail(u.email)) return res.status(403).json({ error: 'Not authorized.' });
   next();
 }
@@ -73,20 +73,19 @@ app.post('/api/signup', async (req, res) => {
     return res.status(400).json({ error: 'Fill in your name, email, phone, and a password of at least 6 characters.' });
   }
   const emailNorm = String(email).toLowerCase().trim();
-  if (db.prepare('SELECT id FROM users WHERE email=?').get(emailNorm)) {
+  if (db.findUserByEmail(emailNorm)) {
     return res.status(409).json({ error: 'An account with that email already exists.' });
   }
   const hash = await bcrypt.hash(password, 10);
   const id = uuid();
-  db.prepare('INSERT INTO users(id,name,email,phone,password_hash,plan,created_at) VALUES(?,?,?,?,?,?,?)')
-    .run(id, name, emailNorm, phone, hash, 'free', Date.now());
+  db.insertUser({ id, name, email: emailNorm, phone, password_hash: hash, plan: 'free', reset_token: null, reset_expires: null, created_at: Date.now() });
   const token = jwt.sign({ uid: id }, process.env.JWT_SECRET, { expiresIn: '30d' });
   res.json({ token, user: publicUser({ id, name, email: emailNorm, phone, plan: 'free' }) });
 });
 
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body || {};
-  const u = db.prepare('SELECT * FROM users WHERE email=?').get(String(email || '').toLowerCase().trim());
+  const u = db.findUserByEmail(String(email || '').toLowerCase().trim());
   if (!u) return res.status(401).json({ error: 'No account with that email.' });
   const ok = await bcrypt.compare(password || '', u.password_hash);
   if (!ok) return res.status(401).json({ error: 'Wrong password.' });
@@ -96,10 +95,10 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/forgot', async (req, res) => {
   const email = String((req.body && req.body.email) || '').toLowerCase().trim();
-  const u = db.prepare('SELECT * FROM users WHERE email=?').get(email);
+  const u = db.findUserByEmail(email);
   if (u) {
     const token = uuid();
-    db.prepare('UPDATE users SET reset_token=?, reset_expires=? WHERE id=?').run(token, Date.now() + 3600000, u.id);
+    db.updateUser(u.id, { reset_token: token, reset_expires: Date.now() + 3600000 });
     const link = (process.env.FRONTEND_URL || '') + '?reset=' + token;
     try {
       await sendMail(u.email, 'Reset your Life Documents password',
@@ -115,25 +114,24 @@ app.post('/api/forgot', async (req, res) => {
 app.post('/api/reset', async (req, res) => {
   const { token, password } = req.body || {};
   if (!token || !password || password.length < 6) return res.status(400).json({ error: 'Invalid request.' });
-  const u = db.prepare('SELECT * FROM users WHERE reset_token=?').get(token);
+  const u = db.findUserByResetToken(token);
   if (!u || !u.reset_expires || u.reset_expires < Date.now()) {
     return res.status(400).json({ error: 'That reset link is invalid or has expired. Request a new one.' });
   }
   const hash = await bcrypt.hash(password, 10);
-  db.prepare('UPDATE users SET password_hash=?, reset_token=NULL, reset_expires=NULL WHERE id=?').run(hash, u.id);
+  db.updateUser(u.id, { password_hash: hash, reset_token: null, reset_expires: null });
   res.json({ ok: true });
 });
 
 app.get('/api/me', auth, (req, res) => {
-  const u = db.prepare('SELECT * FROM users WHERE id=?').get(req.userId);
+  const u = db.findUserById(req.userId);
   if (!u) return res.status(404).json({ error: 'Account not found.' });
   res.json({ user: publicUser(u) });
 });
 
 app.put('/api/me', auth, (req, res) => {
   const { name, email, phone } = req.body || {};
-  db.prepare('UPDATE users SET name=?, email=?, phone=? WHERE id=?')
-    .run(name || '', String(email || '').toLowerCase().trim(), phone || '', req.userId);
+  db.updateUser(req.userId, { name: name || '', email: String(email || '').toLowerCase().trim(), phone: phone || '' });
   res.json({ ok: true });
 });
 
@@ -141,24 +139,23 @@ app.put('/api/me', auth, (req, res) => {
 // Lets the frontend know whether the signed-in account is the admin,
 // without needing to guess by calling an admin-only route and checking the error.
 app.get('/api/admin/whoami', auth, (req, res) => {
-  const u = db.prepare('SELECT email FROM users WHERE id=?').get(req.userId);
+  const u = db.findUserById(req.userId);
   res.json({ isAdmin: isAdminEmail(u && u.email) });
 });
 
 app.get('/api/admin/users', auth, requireAdmin, (req, res) => {
-  const users = db.prepare('SELECT id,name,email,phone,created_at FROM users ORDER BY created_at DESC').all();
-  const docCounts = db.prepare('SELECT user_id, COUNT(*) c FROM documents GROUP BY user_id').all();
-  const byUser = {};
-  docCounts.forEach(r => { byUser[r.user_id] = r.c; });
+  const users = db.listUsers();
+  const byUser = db.docCountsByUser();
   users.forEach(u => { u.documentCount = byUser[u.id] || 0; });
   res.json({ users });
 });
 
 app.get('/api/admin/users/:id', auth, requireAdmin, (req, res) => {
-  const u = db.prepare('SELECT id,name,email,phone,created_at FROM users WHERE id=?').get(req.params.id);
-  if (!u) return res.status(404).json({ error: 'Not found.' });
-  const docs = db.prepare('SELECT * FROM documents WHERE user_id=? ORDER BY created_at').all(u.id);
-  const files = db.prepare('SELECT id,document_id,name,mime,size FROM files WHERE user_id=?').all(u.id);
+  const full = db.findUserById(req.params.id);
+  if (!full) return res.status(404).json({ error: 'Not found.' });
+  const u = { id: full.id, name: full.name, email: full.email, phone: full.phone, created_at: full.created_at };
+  const docs = db.listDocumentsByUser(u.id);
+  const files = db.listFilesByUser(u.id);
   docs.forEach(d => { d.files = files.filter(f => f.document_id === d.id); });
   res.json({ user: u, docs });
 });
@@ -166,7 +163,7 @@ app.get('/api/admin/users/:id', auth, requireAdmin, (req, res) => {
 // Admin can open any user's file (support/verification), bypassing the
 // normal owner-only check in /api/files/:id.
 app.get('/api/admin/files/:id', auth, requireAdmin, (req, res) => {
-  const f = db.prepare('SELECT * FROM files WHERE id=?').get(req.params.id);
+  const f = db.findFileById(req.params.id);
   if (!f) return res.status(404).end();
   res.setHeader('Content-Type', f.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', 'inline; filename="' + f.name.replace(/"/g, '') + '"');
@@ -175,8 +172,8 @@ app.get('/api/admin/files/:id', auth, requireAdmin, (req, res) => {
 
 /* ---------------- documents ---------------- */
 app.get('/api/documents', auth, (req, res) => {
-  const docs = db.prepare('SELECT * FROM documents WHERE user_id=? ORDER BY created_at').all(req.userId);
-  const files = db.prepare('SELECT id,document_id,name,mime,size FROM files WHERE user_id=?').all(req.userId);
+  const docs = db.listDocumentsByUser(req.userId);
+  const files = db.listFilesByUser(req.userId);
   docs.forEach(d => { d.files = files.filter(f => f.document_id === d.id); });
   res.json({ docs });
 });
@@ -185,29 +182,34 @@ app.post('/api/documents', auth, (req, res) => {
   const b = req.body || {};
   if (!b.title) return res.status(400).json({ error: 'Give the document a name.' });
   const id = uuid();
-  db.prepare('INSERT INTO documents(id,user_id,type,title,holder,number,issue,expiry,lead,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
-    .run(id, req.userId, b.type || 'other', b.title, b.holder || '', b.number || '', b.issue || '', b.expiry || '', Number(b.lead) || 30, b.notes || '', Date.now());
+  db.insertDocument({
+    id, user_id: req.userId, type: b.type || 'other', title: b.title, holder: b.holder || '',
+    number: b.number || '', issue: b.issue || '', expiry: b.expiry || '', lead: Number(b.lead) || 30,
+    notes: b.notes || '', created_at: Date.now()
+  });
   res.json({ id });
 });
 
 app.put('/api/documents/:id', auth, (req, res) => {
-  const d = db.prepare('SELECT * FROM documents WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+  const d = db.findDocument(req.params.id, req.userId);
   if (!d) return res.status(404).json({ error: 'Not found.' });
   const b = req.body || {};
   if (!b.title) return res.status(400).json({ error: 'Give the document a name.' });
-  db.prepare('UPDATE documents SET type=?,title=?,holder=?,number=?,issue=?,expiry=?,lead=?,notes=? WHERE id=?')
-    .run(b.type || d.type, b.title, b.holder || '', b.number || '', b.issue || '', b.expiry || '', Number(b.lead) || 30, b.notes || '', d.id);
+  db.updateDocument(d.id, {
+    type: b.type || d.type, title: b.title, holder: b.holder || '', number: b.number || '',
+    issue: b.issue || '', expiry: b.expiry || '', lead: Number(b.lead) || 30, notes: b.notes || ''
+  });
   res.json({ ok: true });
 });
 
 app.delete('/api/documents/:id', auth, (req, res) => {
-  const d = db.prepare('SELECT * FROM documents WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+  const d = db.findDocument(req.params.id, req.userId);
   if (!d) return res.status(404).json({ error: 'Not found.' });
-  const files = db.prepare('SELECT * FROM files WHERE document_id=?').all(d.id);
+  const files = db.listFilesByDocument(d.id);
   files.forEach(f => { try { fs.unlinkSync(f.path); } catch (e) {} });
-  db.prepare('DELETE FROM files WHERE document_id=?').run(d.id);
-  db.prepare('DELETE FROM notified WHERE document_id=?').run(d.id);
-  db.prepare('DELETE FROM documents WHERE id=?').run(d.id);
+  db.deleteFilesByDocument(d.id);
+  db.deleteNotifiedByDocument(d.id);
+  db.deleteDocument(d.id);
   res.json({ ok: true });
 });
 
@@ -215,20 +217,22 @@ app.delete('/api/documents/:id', auth, (req, res) => {
 const upload = multer({ dest: UPLOAD_DIR, limits: { fileSize: 6 * 1024 * 1024 } });
 
 app.post('/api/documents/:id/files', auth, upload.single('file'), (req, res) => {
-  const d = db.prepare('SELECT * FROM documents WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+  const d = db.findDocument(req.params.id, req.userId);
   if (!d) {
     if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {}
     return res.status(404).json({ error: 'Not found.' });
   }
   if (!req.file) return res.status(400).json({ error: 'No file received.' });
   const id = uuid();
-  db.prepare('INSERT INTO files(id,document_id,user_id,name,mime,size,path,created_at) VALUES(?,?,?,?,?,?,?,?)')
-    .run(id, d.id, req.userId, req.file.originalname, req.file.mimetype, req.file.size, req.file.path, Date.now());
+  db.insertFile({
+    id, document_id: d.id, user_id: req.userId, name: req.file.originalname, mime: req.file.mimetype,
+    size: req.file.size, path: req.file.path, created_at: Date.now()
+  });
   res.json({ id, name: req.file.originalname, mime: req.file.mimetype, size: req.file.size });
 });
 
 app.get('/api/files/:id', auth, (req, res) => {
-  const f = db.prepare('SELECT * FROM files WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+  const f = db.findFile(req.params.id, req.userId);
   if (!f) return res.status(404).end();
   res.setHeader('Content-Type', f.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', 'inline; filename="' + f.name.replace(/"/g, '') + '"');
@@ -236,31 +240,27 @@ app.get('/api/files/:id', auth, (req, res) => {
 });
 
 app.delete('/api/files/:id', auth, (req, res) => {
-  const f = db.prepare('SELECT * FROM files WHERE id=? AND user_id=?').get(req.params.id, req.userId);
+  const f = db.findFile(req.params.id, req.userId);
   if (!f) return res.status(404).json({ error: 'Not found.' });
   try { fs.unlinkSync(f.path); } catch (e) {}
-  db.prepare('DELETE FROM files WHERE id=?').run(f.id);
+  db.deleteFile(f.id);
   res.json({ ok: true });
 });
 
 /* ---------------- daily reminder emails (the actual automatic part) ---------------- */
 function runReminderSweep() {
   const todayISO = new Date().toISOString().slice(0, 10);
-  const rows = db.prepare(`
-    SELECT documents.*, users.email AS user_email
-    FROM documents JOIN users ON users.id = documents.user_id
-    WHERE documents.expiry IS NOT NULL AND documents.expiry <> ''
-  `).all();
+  const rows = db.allDocumentsWithExpiry();
   rows.forEach(d => {
     const dl = daysLeft(d.expiry);
     if (dl === null || dl > (d.lead || 30)) return;
-    const already = db.prepare('SELECT id FROM notified WHERE document_id=? AND sent_date=?').get(d.id, todayISO);
-    if (already) return;
+    if (!d.user_email) return;
+    if (db.findNotified(d.id, todayISO)) return;
     const when = dl < 0 ? ('expired ' + (-dl) + ' day(s) ago') : dl === 0 ? 'expires today' : ('expires in ' + dl + ' day(s)');
     const subject = (dl < 0 ? 'Expired: ' : 'Reminder: ') + d.title;
     const body = d.title + ' ' + when + ' (' + d.expiry + ').' + (d.notes ? ('\n\n' + d.notes) : '');
     sendMail(d.user_email, subject, body)
-      .then(() => db.prepare('INSERT INTO notified(id,user_id,document_id,sent_date) VALUES(?,?,?,?)').run(uuid(), d.user_id, d.id, todayISO))
+      .then(() => db.insertNotified({ id: uuid(), user_id: d.user_id, document_id: d.id, sent_date: todayISO }))
       .catch(e => console.error('Reminder email failed for document', d.id, e.message));
   });
 }

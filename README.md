@@ -61,9 +61,20 @@ needs doing once per device.
 
 ## Data model
 
-SQLite file (`data.sqlite` by default) with `users`, `documents`, `files`
-(uploaded file metadata; the actual bytes sit in `uploads/`), and `notified`
-(so the same reminder email isn't sent twice in one day). No encryption at
-rest is applied to file contents in this version — anyone with server/disk
-access can read them, same as most small apps. If that matters for your use
-case, say so and I can add server-side encryption for stored files.
+A single JSON file (`data.json` by default) holding `users`, `documents`,
+`files` (uploaded file metadata; the actual bytes sit in `uploads/`), and
+`notified` (so the same reminder email isn't sent twice in one day). This
+was originally SQLite via `better-sqlite3`, but that package needs to
+compile native C++ code on install, which failed on Render's free build
+image. Plain JSON has no build step, so it can't fail that way — the
+trade-off is it's not meant for heavy concurrent traffic, which is a
+non-issue at personal/small-group scale.
+
+No encryption at rest is applied to file contents in this version — anyone
+with server/disk access can read them, same as most small apps. If that
+matters for your use case, say so and I can add server-side encryption for
+stored files.
+
+**Remember:** on Render's free tier the filesystem (including `data.json`
+and `uploads/`) is not persistent — it's wiped on restart/redeploy. This
+storage format fixes the *build* problem, not the *persistence* problem.

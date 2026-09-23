@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Life Documents</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F6B4F">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -215,7 +219,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       <div class="actions"><button id="npGo" class="btn primary" type="button">Save password</button></div>
     </div>
 
-    <button id="backendLinkBtn" class="backend-link" type="button">Backend server settings</button>
+    <button id="backendLinkBtn" class="backend-link" type="button" hidden>Backend server settings</button>
   </div>
 </section>
 
@@ -349,7 +353,13 @@ var toastT;
 function toast(t){var el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){el.hidden=true;},2800);}
 
 /* ---------------- API ---------------- */
-var API_BASE = localStorage.getItem('ld_api_base') || '';
+// Baked-in default so regular visitors never have to know a "backend" exists.
+// Only ever overridden manually (see the hidden #backendLinkBtn) for your own testing.
+var DEFAULT_API_BASE = 'https://life-document-new.onrender.com';
+var API_BASE = localStorage.getItem('ld_api_base') || DEFAULT_API_BASE;
+// Visit the app with ?backend=1 on the end of the link to reveal the
+// settings link again, e.g. if you ever move to a different server.
+if(new URLSearchParams(location.search).get('backend')==='1'){ $('#backendLinkBtn').hidden=false; }
 var TOKEN = localStorage.getItem('ld_token') || null;
 function api(path, opts){
   opts = opts || {};
@@ -797,6 +807,13 @@ document.addEventListener('click',function(e){
 ['formDlg','viewDlg','acctDlg','adminDlg','backendDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
+
+/* ---------------- installable app shell ---------------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
 
 /* ---------------- boot ---------------- */
 var resetToken=new URLSearchParams(location.search).get('reset');

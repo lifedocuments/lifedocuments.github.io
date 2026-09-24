@@ -26,6 +26,7 @@ async function init() {
     -- Added after the table already existed in production, so a plain
     -- CREATE TABLE IF NOT EXISTS above won't add it to existing databases.
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at BIGINT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_device TEXT;
     CREATE TABLE IF NOT EXISTS documents(
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),
@@ -39,6 +40,10 @@ async function init() {
       notes TEXT,
       created_at BIGINT NOT NULL
     );
+    -- Snapshot of prior expiry/number/issue kept whenever a document is
+    -- renewed (its expiry date is changed to a new one), so old versions
+    -- stay available for insurance claims, visa applications, etc.
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS history JSONB NOT NULL DEFAULT '[]';
     CREATE TABLE IF NOT EXISTS files(
       id TEXT PRIMARY KEY,
       document_id TEXT NOT NULL REFERENCES documents(id),
@@ -107,8 +112,8 @@ module.exports = {
     const r = await pool.query('SELECT id,name,email,phone,created_at,last_login_at FROM users ORDER BY created_at DESC');
     return r.rows;
   },
-  async touchLastLogin(id) {
-    await pool.query('UPDATE users SET last_login_at=$2 WHERE id=$1', [id, Date.now()]);
+  async touchLastLogin(id, device) {
+    await pool.query('UPDATE users SET last_login_at=$2, last_login_device=$3 WHERE id=$1', [id, Date.now(), device || null]);
   },
   async docCountsByUser() {
     const r = await pool.query('SELECT user_id, COUNT(*)::int c FROM documents GROUP BY user_id');

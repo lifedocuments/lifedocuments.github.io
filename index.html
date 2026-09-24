@@ -98,6 +98,9 @@ main{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 64px}
 .hero .btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.55);color:inherit}
 .hero[data-tone="amber"] .btn{background:rgba(0,0,0,.08);border-color:rgba(0,0,0,.4)}
 .hero .btn:hover{background:rgba(255,255,255,.28)}
+.nudge{border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 18px;background:var(--surface)}
+.nudge p{margin:0 0 10px;font-size:15px}
+.nudge .cta{display:flex;gap:10px;flex-wrap:wrap}
 .hero[data-tone="amber"] .btn:hover{background:rgba(0,0,0,.16)}
 .hero .btn:focus-visible{outline-color:currentColor}
 
@@ -189,45 +192,45 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <h1 class="wordmark">Life<br>Documents</h1>
 
     <div id="panelSignIn">
-      <p class="lede">Sign in to your vault.</p>
-      <label class="field"><span>Email</span><input id="si-email" class="input" type="email" autocomplete="email"></label>
-      <label class="field"><span>Password</span><input id="si-pass" class="input" type="password" autocomplete="current-password"></label>
+      <p class="lede" data-i18n="si_lede">Sign in to your vault.</p>
+      <label class="field"><span data-i18n="field_email">Email</span><input id="si-email" class="input" type="email" autocomplete="email"></label>
+      <label class="field"><span data-i18n="field_password">Password</span><input id="si-pass" class="input" type="password" autocomplete="current-password"></label>
       <p id="siMsg" class="msg" role="alert"></p>
       <div class="actions">
-        <button id="siGo" class="btn primary" type="button">Sign in</button>
-        <button id="forgotBtn" class="linklike" type="button">Forgot your password?</button>
+        <button id="siGo" class="btn primary" type="button" data-i18n="si_go">Sign in</button>
+        <button id="forgotBtn" class="linklike" type="button" data-i18n="forgot_btn">Forgot your password?</button>
       </div>
-      <p class="swap">New here? <button id="toSignUp" type="button">Create an account</button></p>
+      <p class="swap"><span data-i18n="new_here">New here?</span> <button id="toSignUp" type="button" data-i18n="create_account">Create an account</button></p>
     </div>
 
     <div id="panelSignUp" hidden>
-      <p class="lede">Keep your passport, licences, insurance and property papers in one place, with real email reminders before they expire.</p>
-      <label class="field"><span>Your name</span><input id="su-name" class="input" maxlength="60" autocomplete="name"></label>
-      <label class="field"><span>Email</span><input id="su-email" class="input" type="email" maxlength="120" autocomplete="email"></label>
-      <label class="field"><span>Phone number</span><input id="su-phone" class="input" type="tel" maxlength="30" autocomplete="tel"></label>
-      <label class="field"><span>Password</span><input id="su-pass" class="input" type="password" autocomplete="new-password"></label>
-      <label class="field"><span>Confirm password</span><input id="su-pass2" class="input" type="password" autocomplete="new-password"></label>
+      <p class="lede" data-i18n="su_lede">Keep your passport, licences, insurance and property papers in one place, with real email reminders before they expire.</p>
+      <label class="field"><span data-i18n="field_your_name">Your name</span><input id="su-name" class="input" maxlength="60" autocomplete="name"></label>
+      <label class="field"><span data-i18n="field_email">Email</span><input id="su-email" class="input" type="email" maxlength="120" autocomplete="email"></label>
+      <label class="field"><span data-i18n="field_phone">Phone number</span><input id="su-phone" class="input" type="tel" maxlength="30" autocomplete="tel"></label>
+      <label class="field"><span data-i18n="field_password">Password</span><input id="su-pass" class="input" type="password" autocomplete="new-password"></label>
+      <label class="field"><span data-i18n="field_confirm_password">Confirm password</span><input id="su-pass2" class="input" type="password" autocomplete="new-password"></label>
       <p id="suMsg" class="msg" role="alert"></p>
-      <div class="actions"><button id="suGo" class="btn primary" type="button">Create account</button></div>
-      <p class="swap">Already have an account? <button id="toSignIn" type="button">Sign in</button></p>
+      <div class="actions"><button id="suGo" class="btn primary" type="button" data-i18n="su_go">Create account</button></div>
+      <p class="swap"><span data-i18n="already_have_account">Already have an account?</span> <button id="toSignIn" type="button" data-i18n="si_go">Sign in</button></p>
     </div>
 
     <div id="panelForgot" hidden>
-      <p class="lede">Enter your email and we'll send a password reset link.</p>
-      <label class="field"><span>Email</span><input id="fg-email" class="input" type="email" autocomplete="email"></label>
+      <p class="lede" data-i18n="fg_lede">Enter your email and we'll send a password reset link.</p>
+      <label class="field"><span data-i18n="field_email">Email</span><input id="fg-email" class="input" type="email" autocomplete="email"></label>
       <p id="fgMsg" class="msg" role="alert"></p>
       <div class="actions">
-        <button id="fgGo" class="btn primary" type="button">Send reset link</button>
-        <button id="fgBack" class="linklike" type="button">Back to sign in</button>
+        <button id="fgGo" class="btn primary" type="button" data-i18n="fg_go">Send reset link</button>
+        <button id="fgBack" class="linklike" type="button" data-i18n="fg_back">Back to sign in</button>
       </div>
     </div>
 
     <div id="panelNewPass" hidden>
-      <p class="lede">Set a new password.</p>
-      <label class="field"><span>New password</span><input id="np-pass" class="input" type="password" autocomplete="new-password"></label>
-      <label class="field"><span>Confirm new password</span><input id="np-pass2" class="input" type="password" autocomplete="new-password"></label>
+      <p class="lede" data-i18n="np_lede">Set a new password.</p>
+      <label class="field"><span data-i18n="field_new_password">New password</span><input id="np-pass" class="input" type="password" autocomplete="new-password"></label>
+      <label class="field"><span data-i18n="field_confirm_new_password">Confirm new password</span><input id="np-pass2" class="input" type="password" autocomplete="new-password"></label>
       <p id="npMsg" class="msg" role="alert"></p>
-      <div class="actions"><button id="npGo" class="btn primary" type="button">Save password</button></div>
+      <div class="actions"><button id="npGo" class="btn primary" type="button" data-i18n="np_go">Save password</button></div>
     </div>
 
     <button id="backendLinkBtn" class="backend-link" type="button" hidden>Backend server settings</button>
@@ -239,16 +242,18 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <span class="brand">Life Documents</span>
     <div class="right">
       <button id="adminBtn" class="btn" type="button" hidden>Admin</button>
-      <button id="acctBtn" class="btn" type="button">Account</button>
-      <button id="addBtn" class="btn primary" type="button">Add document</button>
-      <button id="lockBtn" class="btn" type="button">Sign out</button>
+      <button id="langBtn" class="btn" type="button">বাংলা</button>
+      <button id="acctBtn" class="btn" type="button" data-i18n="acct_btn">Account</button>
+      <button id="addBtn" class="btn primary" type="button" data-i18n="add_btn">Add document</button>
+      <button id="lockBtn" class="btn" type="button" data-i18n="lock_btn">Sign out</button>
     </div>
   </header>
   <main>
+    <div id="nudge" class="nudge" hidden></div>
     <section id="hero" class="hero" aria-live="polite"></section>
     <div id="toolbar" class="bar">
       <div class="tabs" id="tabs" role="group" aria-label="Filter documents"></div>
-      <input id="q" class="input search" type="search" placeholder="Search documents" aria-label="Search documents">
+      <input id="q" class="input search" type="search" placeholder="Search documents" aria-label="Search documents" data-i18n-ph="search_placeholder">
     </div>
     <ul id="list" class="list"></ul>
     <div id="empty" class="empty" hidden></div>
@@ -261,39 +266,39 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <form id="form" novalidate>
     <div class="db">
       <div class="g2">
-        <label class="field"><span>Type</span><select id="f-type" class="input"></select></label>
-        <label class="field"><span>Name</span><input id="f-title" class="input" maxlength="80" placeholder="e.g. My passport"></label>
+        <label class="field"><span data-i18n="field_type">Type</span><select id="f-type" class="input"></select></label>
+        <label class="field"><span data-i18n="field_name">Name</span><input id="f-title" class="input" maxlength="80" placeholder="e.g. My passport" data-i18n-ph="field_name_ph"></label>
       </div>
       <div class="g2">
-        <label class="field"><span>Belongs to</span><input id="f-holder" class="input" maxlength="60" placeholder="Me, Shop, Father…"></label>
-        <label class="field"><span>Document number</span><input id="f-number" class="input" maxlength="60" autocomplete="off"></label>
+        <label class="field"><span data-i18n="field_belongs">Belongs to</span><input id="f-holder" class="input" maxlength="60" placeholder="Me, Shop, Father…" data-i18n-ph="field_belongs_ph"></label>
+        <label class="field"><span data-i18n="field_docnum">Document number</span><input id="f-number" class="input" maxlength="60" autocomplete="off"></label>
       </div>
       <div class="g2">
-        <label class="field"><span>Issue date</span><input id="f-issue" class="input" type="date"></label>
-        <label class="field"><span>Expiry date</span><input id="f-expiry" class="input" type="date"><small>Leave empty if it never expires.</small></label>
+        <label class="field"><span data-i18n="field_issue">Issue date</span><input id="f-issue" class="input" type="date"></label>
+        <label class="field"><span data-i18n="field_expiry">Expiry date</span><input id="f-expiry" class="input" type="date"><small data-i18n="field_expiry_hint">Leave empty if it never expires.</small></label>
       </div>
-      <label class="field" id="leadWrap"><span>Alarm me</span>
+      <label class="field" id="leadWrap"><span data-i18n="field_alarm">Alarm me</span>
         <select id="f-lead" class="input">
-          <option value="7">7 days before</option>
-          <option value="14">14 days before</option>
-          <option value="30">30 days before</option>
-          <option value="60">60 days before</option>
-          <option value="90">90 days before</option>
+          <option value="7" data-i18n="lead_7">7 days before</option>
+          <option value="14" data-i18n="lead_14">14 days before</option>
+          <option value="30" data-i18n="lead_30">30 days before</option>
+          <option value="60" data-i18n="lead_60">60 days before</option>
+          <option value="90" data-i18n="lead_90">90 days before</option>
         </select>
-        <small>Sets the countdown color and when the daily reminder email starts.</small>
+        <small data-i18n="field_alarm_hint">Sets the countdown color and when the daily reminder email starts.</small>
       </label>
-      <label class="field"><span>Notes</span><textarea id="f-notes" class="input" maxlength="600" placeholder="Where the original is kept, renewal office, policy contact…"></textarea></label>
+      <label class="field"><span data-i18n="field_notes">Notes</span><textarea id="f-notes" class="input" maxlength="600" placeholder="Where the original is kept, renewal office, policy contact…" data-i18n-ph="field_notes_ph"></textarea></label>
       <div class="field" id="filesField">
-        <span>Photo or PDF scan</span>
+        <span data-i18n="field_file">Photo or PDF scan</span>
         <input id="f-files" type="file" accept="image/*,application/pdf">
-        <small>Up to 6 MB.</small>
+        <small data-i18n="field_file_hint">Up to 6 MB.</small>
         <ul id="fileList" class="files" style="margin-top:10px"></ul>
       </div>
       <p id="formMsg" class="msg" role="alert"></p>
     </div>
     <div class="df">
-      <button id="saveBtn" class="btn primary" type="submit">Save document</button>
-      <button class="btn" type="button" data-close>Cancel</button>
+      <button id="saveBtn" class="btn primary" type="submit" data-i18n="save_doc">Save document</button>
+      <button class="btn" type="button" data-close data-i18n="cancel">Cancel</button>
     </div>
   </form>
 </dialog>
@@ -305,15 +310,16 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 </dialog>
 
 <dialog id="acctDlg" aria-labelledby="acctTitle">
-  <div class="dh"><h2 id="acctTitle">Your account</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="dh"><h2 id="acctTitle" data-i18n="acct_title">Your account</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
   <form id="acctForm">
     <div class="db">
-      <label class="field"><span>Name</span><input id="ac-name" class="input" maxlength="60"></label>
-      <label class="field"><span>Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
-      <label class="field"><span>Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
+      <label class="field"><span data-i18n="field_name">Name</span><input id="ac-name" class="input" maxlength="60"></label>
+      <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
+      <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
+      <p id="acctTrust" class="msg info" hidden></p>
       <p id="acctMsg" class="msg" role="alert"></p>
     </div>
-    <div class="df"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-close>Cancel</button></div>
+    <div class="df"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
   </form>
 </dialog>
 
@@ -339,16 +345,22 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 'use strict';
 
 var TYPES = {
-  nid:{label:'National ID (NID)',icon:'🪪',lead:30,name:'National ID'},
-  passport:{label:'Passport',icon:'🛂',lead:90,name:'Passport'},
-  birth:{label:'Birth certificate',icon:'👶',lead:30,name:'Birth certificate'},
-  trade:{label:'Trade licence',icon:'🏪',lead:30,name:'Trade licence'},
-  insurance:{label:'Insurance',icon:'🛡️',lead:30,name:'Insurance policy'},
-  warranty:{label:'Warranty',icon:'🧾',lead:30,name:'Warranty'},
-  property:{label:'Property document',icon:'🏠',lead:60,name:'Property document'},
-  certificate:{label:'Certificate',icon:'🎓',lead:30,name:'Certificate'},
-  other:{label:'Other',icon:'📄',lead:30,name:'Document'}
+  nid:{label:'National ID (NID)',labelBn:'জাতীয় পরিচয়পত্র (NID)',icon:'🪪',lead:30,name:'National ID'},
+  passport:{label:'Passport',labelBn:'পাসপোর্ট',icon:'🛂',lead:90,name:'Passport'},
+  birth:{label:'Birth certificate',labelBn:'জন্ম নিবন্ধন সনদ',icon:'👶',lead:30,name:'Birth certificate'},
+  trade:{label:'Trade licence',labelBn:'ট্রেড লাইসেন্স',icon:'🏪',lead:30,name:'Trade licence',hint:'Usually renews every year — check the renewal month with your City Corporation / Union Parishad office.',hintBn:'সাধারণত প্রতি বছর নবায়ন করতে হয় — সিটি কর্পোরেশন / ইউনিয়ন পরিষদ অফিসে নবায়নের মাস জেনে নিন।'},
+  tin:{label:'TIN certificate',labelBn:'টিআইএন সনদ',icon:'🧮',lead:30,name:'TIN certificate',hint:'Keep the TIN number handy every tax season; note where the certificate is filed.',hintBn:'প্রতি কর মৌসুমে টিআইএন নম্বরটি হাতের কাছে রাখুন; সনদটি কোথায় রাখা আছে তা নোট করুন।'},
+  udc:{label:'Union Digital Centre document',labelBn:'ইউনিয়ন ডিজিটাল সেন্টারের কাগজ',icon:'🏛️',lead:30,name:'UDC document',hint:'e.g. birth/death registration, land records, or another UDC-issued paper — note which service issued it.',hintBn:'যেমন: জন্ম/মৃত্যু নিবন্ধন, জমির রেকর্ড, বা অন্য কোনো UDC-ইস্যুকৃত কাগজ — কোন সেবা থেকে ইস্যু হয়েছে তা নোট করুন।'},
+  insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️',lead:30,name:'Insurance policy'},
+  warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty'},
+  property:{label:'Property document',labelBn:'সম্পত্তির দলিল',icon:'🏠',lead:60,name:'Property document'},
+  certificate:{label:'Certificate',labelBn:'সার্টিফিকেট',icon:'🎓',lead:30,name:'Certificate'},
+  other:{label:'Other',labelBn:'অন্যান্য',icon:'📄',lead:30,name:'Document'}
 };
+function typeLabel(T){ return (LANG==='bn' && T.labelBn) ? T.labelBn : T.label; }
+function typeHint(T){ return (LANG==='bn' && T.hintBn) ? T.hintBn : T.hint; }
+// The "usual" set nudged by the vault-completeness banner below.
+var COMMON_TYPES = ['nid','passport','trade','tin','udc','insurance','property','certificate'];
 var URGENT_DAYS = 14;
 var $ = function(s){return document.querySelector(s);};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -358,10 +370,160 @@ function parseD(s){var p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[
 function fmt(s){return parseD(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
 function daysLeft(doc){return doc.expiry?Math.round((parseD(doc.expiry)-today())/864e5):null;}
 function tone(doc){var d=daysLeft(doc);if(d===null)return 'none';if(d<=URGENT_DAYS)return 'red';if(d<=(doc.lead||30))return 'amber';return 'green';}
-function whenText(d){if(d<0)return 'expired '+plural(-d,'day')+' ago';if(d===0)return 'expires today';return 'expires in '+plural(d,'day');}
+function whenText(d){
+  if(LANG==='bn'){ if(d<0)return (-d)+' দিন আগে মেয়াদ শেষ হয়েছে'; if(d===0)return t('expires_today'); return d+' দিনে মেয়াদ শেষ হবে'; }
+  if(d<0)return 'expired '+plural(-d,'day')+' ago';if(d===0)return t('expires_today');return 'expires in '+plural(d,'day');
+}
 function sizeText(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
 var toastT;
 function toast(t){var el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){el.hidden=true;},2800);}
+
+/* ---------------- language (English / Bangla) ---------------- */
+// Covers the customer-facing screens only — the admin dashboard and the
+// dev-only backend-URL dialog stay in English on purpose. Digits are never
+// converted to Bangla numerals, only the surrounding words are translated.
+// Only fixed (non-pluralized) strings live here. Anything whose wording
+// depends on a count (day/days, file/files, etc.) is handled inline by the
+// code that builds it, branching on LANG directly — English keeps its
+// existing grammar and Bangla doesn't need singular/plural forms at all.
+var STR = {
+  en: {
+    si_lede:'Sign in to your vault.', field_email:'Email', field_password:'Password',
+    si_go:'Sign in', forgot_btn:'Forgot your password?', new_here:'New here?', create_account:'Create an account',
+    su_lede:'Keep your passport, licences, insurance and property papers in one place, with real email reminders before they expire.',
+    field_your_name:'Your name', field_phone:'Phone number', field_confirm_password:'Confirm password',
+    su_go:'Create account', already_have_account:'Already have an account?',
+    fg_lede:'Enter your email and we’ll send a password reset link.', fg_go:'Send reset link', fg_back:'Back to sign in',
+    np_lede:'Set a new password.', field_new_password:'New password', field_confirm_new_password:'Confirm new password', np_go:'Save password',
+    acct_btn:'Account', add_btn:'Add document', lock_btn:'Sign out', search_placeholder:'Search documents',
+    tab_all:'All', tab_soon:'Expiring soon', tab_none:'No expiry',
+    hero_empty_kicker:'Your vault is empty', hero_empty_h1:'Nothing is expiring yet.',
+    hero_empty_sub:'Add a document and its expiry date. We’ll email you before it expires.',
+    hero_needs_action:'Needs action', hero_renew_soon:'Renew soon',
+    hero_auto_email:'You’ll get an email for this automatically.',
+    hero_open_doc:'Open document', hero_add_calendar:'Add to Google Calendar',
+    hero_all_clear:'All clear', hero_nothing_needs_renew:'Nothing needs renewing right now.',
+    hero_next_up:'Next up: {title} {when}.', hero_stored_safely:'Stored safely',
+    hero_no_expiry_yet:'None of them has an expiry date yet.',
+    empty_first_h2:'Start with the one that expires first',
+    empty_first_p:'Passport, trade licence, insurance policy. Add the expiry date and get an automatic email before it lapses.',
+    empty_first_cta:'Add your first document',
+    empty_nomatch_h2:'No matches', empty_nomatch_p:'Try a different search or filter.',
+    footer_text:'A daily check on the server emails you automatically when a document enters its alarm window — no need to keep this page open.',
+    nudge_text:'You’ve added {have} of the usual {total} documents people keep here. Add your {label}?',
+    nudge_add:'Add {label}', nudge_dismiss:'Not now',
+    never_expires:'Never expires', expires_today:'Expires today', no_expiry:'no expiry',
+    dt_type:'Type', dt_belongs:'Belongs to', dt_number:'Document number', dt_issued:'Issued', dt_expires:'Expires',
+    dt_notes:'Notes', dt_files:'Files', dt_history:'Renewal history',
+    btn_show:'Show', btn_hide:'Hide', btn_copy:'Copy', btn_edit:'Edit', btn_delete:'Delete',
+    btn_delete_confirm:'Tap again to delete', btn_view:'View', btn_open_file:'Open file',
+    share_whatsapp:'Share via WhatsApp',
+    form_title_add:'Add document', form_title_edit:'Edit document',
+    field_type:'Type', field_name:'Name', field_name_ph:'e.g. My passport',
+    field_belongs:'Belongs to', field_belongs_ph:'Me, Shop, Father…', field_docnum:'Document number',
+    field_issue:'Issue date', field_expiry:'Expiry date', field_expiry_hint:'Leave empty if it never expires.',
+    field_alarm:'Alarm me',
+    lead_7:'7 days before', lead_14:'14 days before', lead_30:'30 days before', lead_60:'60 days before', lead_90:'90 days before',
+    field_alarm_hint:'Sets the countdown color and when the daily reminder email starts.',
+    field_notes:'Notes', field_notes_ph:'Where the original is kept, renewal office, policy contact…',
+    field_file:'Photo or PDF scan', field_file_hint:'Up to 6 MB.',
+    save_doc:'Save document', cancel:'Cancel', remove:'Remove', save:'Save',
+    acct_title:'Your account', last_signed_in:'Last signed in: {rest}',
+    toast_deleted:'Deleted', toast_doc_saved:'Document saved', toast_changes_saved:'Changes saved',
+    toast_account_updated:'Account updated', toast_number_copied:'Number copied',
+    toast_password_updated:'Password updated. Sign in with your new password.',
+    err_enter_email_pass:'Enter your email and password.', signing_in:'Signing in…', err_could_not_sign_in:'Could not sign in.',
+    err_enter_name:'Enter your name.', err_valid_email:'Enter a valid email address.', err_enter_phone:'Enter your phone number.',
+    err_pass_min:'Use a password of at least 6 characters.', err_pass_match:'The two passwords do not match.',
+    creating:'Creating…', err_could_not_create:'Could not create your account.',
+    err_enter_email:'Enter your email.', sending:'Sending…',
+    fg_success_default:'If that email is registered, a reset link has been sent.', err_could_not_send_reset:'Could not send the reset email.',
+    err_pass_min_short:'Use at least 6 characters.', err_entries_no_match:'The two entries do not match.',
+    saving:'Saving…', err_could_not_update_pass:'Could not update your password.',
+    err_could_not_save:'Could not save.', err_give_name:'Give the document a name.',
+    err_expiry_before_issue:'The expiry date is before the issue date.', err_could_not_delete:'Could not delete.',
+    err_could_not_load_docs:'Could not load your documents.', err_file_too_large:'That file is larger than 6 MB.',
+    err_could_not_open_file:'Could not open this file', copy_blocked:'Copy is blocked here. Tap Show and copy by hand.'
+  },
+  bn: {
+    si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
+    si_go:'সাইন ইন করুন', forgot_btn:'পাসওয়ার্ড ভুলে গেছেন?', new_here:'নতুন এসেছেন?', create_account:'অ্যাকাউন্ট তৈরি করুন',
+    su_lede:'আপনার পাসপোর্ট, লাইসেন্স, বিমা ও সম্পত্তির কাগজপত্র এক জায়গায় রাখুন, মেয়াদ শেষ হওয়ার আগে সত্যিকারের ইমেইল রিমাইন্ডারসহ।',
+    field_your_name:'আপনার নাম', field_phone:'ফোন নম্বর', field_confirm_password:'পাসওয়ার্ড নিশ্চিত করুন',
+    su_go:'অ্যাকাউন্ট তৈরি করুন', already_have_account:'আগে থেকেই অ্যাকাউন্ট আছে?',
+    fg_lede:'আপনার ইমেইল লিখুন, আমরা একটি পাসওয়ার্ড রিসেট লিংক পাঠাব।', fg_go:'রিসেট লিংক পাঠান', fg_back:'সাইন ইনে ফিরে যান',
+    np_lede:'নতুন পাসওয়ার্ড সেট করুন।', field_new_password:'নতুন পাসওয়ার্ড', field_confirm_new_password:'নতুন পাসওয়ার্ড নিশ্চিত করুন', np_go:'পাসওয়ার্ড সংরক্ষণ করুন',
+    acct_btn:'অ্যাকাউন্ট', add_btn:'ডকুমেন্ট যোগ করুন', lock_btn:'সাইন আউট', search_placeholder:'ডকুমেন্ট খুঁজুন',
+    tab_all:'সব', tab_soon:'শীঘ্রই মেয়াদ শেষ', tab_none:'মেয়াদ নেই',
+    hero_empty_kicker:'আপনার ভল্টে কিছু নেই', hero_empty_h1:'এখনো কিছুর মেয়াদ শেষ হচ্ছে না।',
+    hero_empty_sub:'একটি ডকুমেন্ট ও তার মেয়াদ শেষের তারিখ যোগ করুন। মেয়াদ শেষ হওয়ার আগে আমরা আপনাকে ইমেইল করব।',
+    hero_needs_action:'পদক্ষেপ প্রয়োজন', hero_renew_soon:'শীঘ্রই নবায়ন করুন',
+    hero_auto_email:'এর জন্য স্বয়ংক্রিয়ভাবে আপনাকে ইমেইল পাঠানো হবে।',
+    hero_open_doc:'ডকুমেন্ট খুলুন', hero_add_calendar:'গুগল ক্যালেন্ডারে যোগ করুন',
+    hero_all_clear:'সব ঠিক আছে', hero_nothing_needs_renew:'এখন কোনো কিছু নবায়নের দরকার নেই।',
+    hero_next_up:'পরবর্তী: {title} {when}।', hero_stored_safely:'নিরাপদে সংরক্ষিত',
+    hero_no_expiry_yet:'এগুলোর কোনোটিরই মেয়াদ শেষের তারিখ নেই।',
+    empty_first_h2:'যেটার মেয়াদ আগে শেষ হবে সেটা দিয়ে শুরু করুন',
+    empty_first_p:'পাসপোর্ট, ট্রেড লাইসেন্স, বিমা পলিসি। মেয়াদ শেষের তারিখ যোগ করুন, মেয়াদ ফুরানোর আগে স্বয়ংক্রিয় ইমেইল পাবেন।',
+    empty_first_cta:'আপনার প্রথম ডকুমেন্ট যোগ করুন',
+    empty_nomatch_h2:'কোনো মিল পাওয়া যায়নি', empty_nomatch_p:'অন্য কিছু দিয়ে খুঁজুন বা ফিল্টার পাল্টান।',
+    footer_text:'সার্ভার প্রতিদিন একবার পরীক্ষা করে, ডকুমেন্ট অ্যালার্ম সময়সীমায় ঢুকলেই স্বয়ংক্রিয়ভাবে আপনাকে ইমেইল করে — এই পেজ খোলা রাখার দরকার নেই।',
+    nudge_text:'সাধারণত মানুষ এখানে {total}টি ডকুমেন্ট রাখে, আপনি {have}টি যোগ করেছেন। আপনার {label} যোগ করবেন?',
+    nudge_add:'{label} যোগ করুন', nudge_dismiss:'এখন না',
+    never_expires:'কখনো মেয়াদ শেষ হয় না', expires_today:'আজ মেয়াদ শেষ', no_expiry:'মেয়াদ নেই',
+    dt_type:'ধরন', dt_belongs:'কার নামে', dt_number:'ডকুমেন্ট নম্বর', dt_issued:'ইস্যুর তারিখ', dt_expires:'মেয়াদ শেষ',
+    dt_notes:'নোট', dt_files:'ফাইল', dt_history:'নবায়নের ইতিহাস',
+    btn_show:'দেখান', btn_hide:'লুকান', btn_copy:'কপি করুন', btn_edit:'সম্পাদনা করুন', btn_delete:'মুছে ফেলুন',
+    btn_delete_confirm:'মুছে ফেলতে আবার চাপুন', btn_view:'দেখুন', btn_open_file:'ফাইল খুলুন',
+    share_whatsapp:'হোয়াটসঅ্যাপে শেয়ার করুন',
+    form_title_add:'ডকুমেন্ট যোগ করুন', form_title_edit:'ডকুমেন্ট সম্পাদনা করুন',
+    field_type:'ধরন', field_name:'নাম', field_name_ph:'যেমন: আমার পাসপোর্ট',
+    field_belongs:'কার নামে', field_belongs_ph:'আমি, দোকান, বাবা…', field_docnum:'ডকুমেন্ট নম্বর',
+    field_issue:'ইস্যুর তারিখ', field_expiry:'মেয়াদ শেষের তারিখ', field_expiry_hint:'কখনো মেয়াদ শেষ না হলে খালি রাখুন।',
+    field_alarm:'আমাকে সতর্ক করুন',
+    lead_7:'7 দিন আগে', lead_14:'14 দিন আগে', lead_30:'30 দিন আগে', lead_60:'60 দিন আগে', lead_90:'90 দিন আগে',
+    field_alarm_hint:'কাউন্টডাউনের রং এবং দৈনিক রিমাইন্ডার ইমেইল কখন শুরু হবে তা নির্ধারণ করে।',
+    field_notes:'নোট', field_notes_ph:'মূল কপি কোথায় আছে, নবায়ন অফিস, পলিসি যোগাযোগ…',
+    field_file:'ছবি বা পিডিএফ স্ক্যান', field_file_hint:'সর্বোচ্চ 6 MB।',
+    save_doc:'ডকুমেন্ট সংরক্ষণ করুন', cancel:'বাতিল করুন', remove:'সরান', save:'সংরক্ষণ করুন',
+    acct_title:'আপনার অ্যাকাউন্ট', last_signed_in:'সর্বশেষ সাইন ইন: {rest}',
+    toast_deleted:'মুছে ফেলা হয়েছে', toast_doc_saved:'ডকুমেন্ট সংরক্ষিত হয়েছে', toast_changes_saved:'পরিবর্তন সংরক্ষিত হয়েছে',
+    toast_account_updated:'অ্যাকাউন্ট আপডেট হয়েছে', toast_number_copied:'নম্বর কপি হয়েছে',
+    toast_password_updated:'পাসওয়ার্ড আপডেট হয়েছে। নতুন পাসওয়ার্ড দিয়ে সাইন ইন করুন।',
+    err_enter_email_pass:'আপনার ইমেইল ও পাসওয়ার্ড লিখুন।', signing_in:'সাইন ইন হচ্ছে…', err_could_not_sign_in:'সাইন ইন করা যায়নি।',
+    err_enter_name:'আপনার নাম লিখুন।', err_valid_email:'সঠিক ইমেইল ঠিকানা লিখুন।', err_enter_phone:'আপনার ফোন নম্বর লিখুন।',
+    err_pass_min:'কমপক্ষে 6 অক্ষরের পাসওয়ার্ড ব্যবহার করুন।', err_pass_match:'দুটি পাসওয়ার্ড মিলছে না।',
+    creating:'তৈরি হচ্ছে…', err_could_not_create:'আপনার অ্যাকাউন্ট তৈরি করা যায়নি।',
+    err_enter_email:'আপনার ইমেইল লিখুন।', sending:'পাঠানো হচ্ছে…',
+    fg_success_default:'যদি এই ইমেইলটি নিবন্ধিত থাকে, তাহলে একটি রিসেট লিংক পাঠানো হয়েছে।', err_could_not_send_reset:'রিসেট ইমেইল পাঠানো যায়নি।',
+    err_pass_min_short:'কমপক্ষে 6 অক্ষর ব্যবহার করুন।', err_entries_no_match:'দুটি এন্ট্রি মিলছে না।',
+    saving:'সংরক্ষণ হচ্ছে…', err_could_not_update_pass:'আপনার পাসওয়ার্ড আপডেট করা যায়নি।',
+    err_could_not_save:'সংরক্ষণ করা যায়নি।', err_give_name:'ডকুমেন্টের একটি নাম দিন।',
+    err_expiry_before_issue:'মেয়াদ শেষের তারিখ ইস্যুর তারিখের আগে।', err_could_not_delete:'মুছে ফেলা যায়নি।',
+    err_could_not_load_docs:'আপনার ডকুমেন্ট লোড করা যায়নি।', err_file_too_large:'ফাইলটি 6 MB এর চেয়ে বড়।',
+    err_could_not_open_file:'এই ফাইলটি খোলা যায়নি', copy_blocked:'এখানে কপি করা যাচ্ছে না। ‘দেখান’ চেপে হাতে কপি করুন।'
+  }
+};
+var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
+function t(key, vars){
+  var s = (STR[LANG] && STR[LANG][key]!=null) ? STR[LANG][key] : (STR.en[key]!=null ? STR.en[key] : key);
+  if(vars){ Object.keys(vars).forEach(function(k){ s = s.split('{'+k+'}').join(vars[k]); }); }
+  return s;
+}
+function applyStaticI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ el.placeholder = t(el.getAttribute('data-i18n-ph')); });
+  var lb=$('#langBtn'); if(lb) lb.textContent = LANG==='bn' ? 'English' : 'বাংলা';
+  document.documentElement.lang = LANG;
+}
+function setLang(l){
+  LANG = l; localStorage.setItem('ld_lang', l);
+  applyStaticI18n();
+  if(typeof renderTypeOptions==='function'){ var cur=$('#f-type').value; renderTypeOptions(); $('#f-type').value=cur; }
+  if(!$('#app').hidden){ render(); }
+}
+$('#langBtn').addEventListener('click', function(){ setLang(LANG==='bn' ? 'en' : 'bn'); });
+applyStaticI18n();
 
 /* ---------------- API ---------------- */
 // Baked-in default so regular visitors never have to know a "backend" exists.
@@ -390,7 +552,7 @@ function api(path, opts){
 }
 
 /* ---------------- state ---------------- */
-var user=null, docs=[], filter='all', query='', isAdmin=false;
+var user=null, docs=[], filter='all', query='', isAdmin=false, nudgeDismissed=false;
 
 /* ---------------- backend-url dialog ---------------- */
 $('#backendLinkBtn').addEventListener('click', function(){
@@ -433,11 +595,11 @@ var pendingResetToken=null;
 
 $('#siGo').addEventListener('click',function(){
   var btn=this,m=$('#siMsg'),email=$('#si-email').value.trim(),pass=$('#si-pass').value;
-  if(!email||!pass){m.textContent='Enter your email and password.';return;}
-  btn.disabled=true;btn.textContent='Signing in…';
+  if(!email||!pass){m.textContent=t('err_enter_email_pass');return;}
+  btn.disabled=true;btn.textContent=t('signing_in');
   api('/api/login',{method:'POST',body:JSON.stringify({email:email,password:pass})}).then(function(data){
     TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;enterApp();
-  }).catch(function(e){m.textContent=e.error||'Could not sign in.';}).then(function(){btn.disabled=false;btn.textContent='Sign in';});
+  }).catch(function(e){m.textContent=e.error||t('err_could_not_sign_in');}).then(function(){btn.disabled=false;btn.textContent=t('si_go');});
 });
 $('#si-pass').addEventListener('keydown',function(e){if(e.key==='Enter')$('#siGo').click();});
 
@@ -445,36 +607,36 @@ $('#suGo').addEventListener('click',function(){
   var btn=this,m=$('#suMsg');
   var name=$('#su-name').value.trim(),email=$('#su-email').value.trim(),phone=$('#su-phone').value.trim();
   var p1=$('#su-pass').value,p2=$('#su-pass2').value;
-  if(!name){m.textContent='Enter your name.';return;}
-  if(!/^\S+@\S+\.\S+$/.test(email)){m.textContent='Enter a valid email address.';return;}
-  if(!phone){m.textContent='Enter your phone number.';return;}
-  if(p1.length<6){m.textContent='Use a password of at least 6 characters.';return;}
-  if(p1!==p2){m.textContent='The two passwords do not match.';return;}
-  btn.disabled=true;btn.textContent='Creating…';
+  if(!name){m.textContent=t('err_enter_name');return;}
+  if(!/^\S+@\S+\.\S+$/.test(email)){m.textContent=t('err_valid_email');return;}
+  if(!phone){m.textContent=t('err_enter_phone');return;}
+  if(p1.length<6){m.textContent=t('err_pass_min');return;}
+  if(p1!==p2){m.textContent=t('err_pass_match');return;}
+  btn.disabled=true;btn.textContent=t('creating');
   api('/api/signup',{method:'POST',body:JSON.stringify({name:name,email:email,phone:phone,password:p1})}).then(function(data){
     TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;enterApp();
-  }).catch(function(e){m.textContent=e.error||'Could not create your account.';}).then(function(){btn.disabled=false;btn.textContent='Create account';});
+  }).catch(function(e){m.textContent=e.error||t('err_could_not_create');}).then(function(){btn.disabled=false;btn.textContent=t('su_go');});
 });
 
 $('#fgGo').addEventListener('click',function(){
   var btn=this,m=$('#fgMsg'),email=$('#fg-email').value.trim();
-  if(!email){m.textContent='Enter your email.';return;}
-  btn.disabled=true;btn.textContent='Sending…';
+  if(!email){m.textContent=t('err_enter_email');return;}
+  btn.disabled=true;btn.textContent=t('sending');
   api('/api/forgot',{method:'POST',body:JSON.stringify({email:email})}).then(function(data){
-    m.className='msg ok';m.textContent=data.message||'If that email is registered, a reset link has been sent.';
-  }).catch(function(e){m.textContent=e.error||'Could not send the reset email.';}).then(function(){btn.disabled=false;btn.textContent='Send reset link';});
+    m.className='msg ok';m.textContent=data.message||t('fg_success_default');
+  }).catch(function(e){m.textContent=e.error||t('err_could_not_send_reset');}).then(function(){btn.disabled=false;btn.textContent=t('fg_go');});
 });
 
 $('#npGo').addEventListener('click',function(){
   var btn=this,m=$('#npMsg'),p1=$('#np-pass').value,p2=$('#np-pass2').value;
-  if(p1.length<6){m.textContent='Use at least 6 characters.';return;}
-  if(p1!==p2){m.textContent='The two entries do not match.';return;}
-  btn.disabled=true;btn.textContent='Saving…';
+  if(p1.length<6){m.textContent=t('err_pass_min_short');return;}
+  if(p1!==p2){m.textContent=t('err_entries_no_match');return;}
+  btn.disabled=true;btn.textContent=t('saving');
   api('/api/reset',{method:'POST',body:JSON.stringify({token:pendingResetToken,password:p1})}).then(function(){
     history.replaceState(null,'',location.pathname);
-    toast('Password updated. Sign in with your new password.');
+    toast(t('toast_password_updated'));
     showPanel('panelSignIn');
-  }).catch(function(e){m.textContent=e.error||'Could not update your password.';}).then(function(){btn.disabled=false;btn.textContent='Save password';});
+  }).catch(function(e){m.textContent=e.error||t('err_could_not_update_pass');}).then(function(){btn.disabled=false;btn.textContent=t('np_go');});
 });
 
 $('#lockBtn').addEventListener('click',function(){
@@ -599,13 +761,20 @@ function loadDocs(){
     docs=data.docs||[];
     docs.forEach(function(d){ d.lead=Number(d.lead)||30; });
     render();
-  }).catch(function(e){toast(e.error||'Could not load your documents.');});
+  }).catch(function(e){toast(e.error||t('err_could_not_load_docs'));});
 }
 
 /* ---------------- account ---------------- */
+function lastSignInText(){
+  if(!user||!user.lastLoginAt)return null;
+  var when=new Date(Number(user.lastLoginAt)).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  return t('last_signed_in',{rest:(user.lastLoginDevice?user.lastLoginDevice+', ':'')+when});
+}
 $('#acctBtn').addEventListener('click',function(){
   $('#ac-name').value=user.name||'';$('#ac-email').value=user.email||'';$('#ac-phone').value=user.phone||'';
   $('#acctMsg').textContent='';
+  var trust=$('#acctTrust'),txt=lastSignInText();
+  trust.hidden=!txt;trust.textContent=txt||'';
   $('#acctDlg').showModal();
 });
 $('#acctForm').addEventListener('submit',function(e){
@@ -614,8 +783,8 @@ $('#acctForm').addEventListener('submit',function(e){
   var payload={name:$('#ac-name').value.trim(),email:$('#ac-email').value.trim(),phone:$('#ac-phone').value.trim()};
   api('/api/me',{method:'PUT',body:JSON.stringify(payload)}).then(function(){
     user.name=payload.name;user.email=payload.email;user.phone=payload.phone;
-    $('#acctDlg').close();toast('Account updated');
-  }).catch(function(e){m.textContent=e.error||'Could not save.';});
+    $('#acctDlg').close();toast(t('toast_account_updated'));
+  }).catch(function(e){m.textContent=e.error||t('err_could_not_save');});
 });
 
 /* ---------------- main list / hero ---------------- */
@@ -629,13 +798,24 @@ function sortedDocs(list){
 }
 function needsAttention(d){var t=tone(d);return t==='red'||t==='amber';}
 
+function whatsAppLink(doc){
+  var n=daysLeft(doc);
+  var lead=LANG==='bn'?'রিমাইন্ডার: ':'Reminder: ';
+  var msg=lead+doc.title+(n!==null?(' '+whenText(n)):'')+(doc.expiry?(' ('+fmt(doc.expiry)+')'):'')+'. — Life Documents';
+  // No phone number in the link — WhatsApp opens its own contact picker,
+  // so this doubles as "remind myself" and "share with family" (Saved
+  // Messages / any contact), with no paid API needed.
+  return 'https://wa.me/?text='+encodeURIComponent(msg);
+}
 function calLink(doc){
   if(!doc.expiry)return null;
   var start=parseD(doc.expiry);start.setDate(start.getDate()-(doc.lead||30));
   if(start<today())start=today();
   var end=new Date(start);end.setDate(end.getDate()+1);
   var f=function(x){return x.getFullYear()+String(x.getMonth()+1).padStart(2,'0')+String(x.getDate()).padStart(2,'0');};
-  var p=new URLSearchParams({action:'TEMPLATE',text:'Renew: '+doc.title,dates:f(start)+'/'+f(end),details:doc.title+' '+whenText(daysLeft(doc))+' ('+fmt(doc.expiry)+'). Reminder from Life Documents.'});
+  var renewLabel=LANG==='bn'?'নবায়ন: ':'Renew: ';
+  var detailsTail=LANG==='bn'?'। Life Documents থেকে রিমাইন্ডার।':'. Reminder from Life Documents.';
+  var p=new URLSearchParams({action:'TEMPLATE',text:renewLabel+doc.title,dates:f(start)+'/'+f(end),details:doc.title+' '+whenText(daysLeft(doc))+' ('+fmt(doc.expiry)+')'+detailsTail});
   return 'https://calendar.google.com/calendar/render?'+p.toString();
 }
 
@@ -643,42 +823,77 @@ function renderHero(){
   var h=$('#hero');
   if(!docs.length){
     h.dataset.tone='none';
-    h.innerHTML='<p class="kicker">Your vault is empty</p><h1>Nothing is expiring yet.</h1><p class="sub">Add a document and its expiry date. We\u2019ll email you before it expires.</p>';
+    h.innerHTML='<p class="kicker">'+t('hero_empty_kicker')+'</p><h1>'+t('hero_empty_h1')+'</h1><p class="sub">'+t('hero_empty_sub')+'</p>';
     return;
   }
   var dated=sortedDocs(docs).filter(function(d){return daysLeft(d)!==null;});
   var attn=dated.filter(needsAttention);
   if(attn.length){
-    var d=attn[0],n=daysLeft(d),t=tone(d),more=attn.length-1;
-    h.dataset.tone=t;
-    h.innerHTML='<p class="kicker">'+(t==='red'?'Needs action':'Renew soon')+'</p>'+
+    var d=attn[0],n=daysLeft(d),tn=tone(d),more=attn.length-1;
+    h.dataset.tone=tn;
+    var moreText;
+    if(more>0){
+      moreText=LANG==='bn'?('\u098f\u09ac\u0982 \u0986\u09b0\u0993 '+more+'\u099f\u09bf \u09a1\u0995\u09c1\u09ae\u09c7\u09a8\u09cd\u099f \u0985\u09cd\u09af\u09be\u09b2\u09be\u09b0\u09cd\u09ae \u09b8\u09ae\u09af\u09bc\u09b8\u09c0\u09ae\u09be\u09b0 \u09ae\u09a7\u09cd\u09af\u09c7 \u0986\u099b\u09c7\u0964'):('And '+plural(more,'other document')+' '+(more===1?'is':'are')+' inside the alarm window.');
+    } else {
+      moreText=t('hero_auto_email');
+    }
+    h.dataset.tone=tn;
+    h.innerHTML='<p class="kicker">'+(tn==='red'?t('hero_needs_action'):t('hero_renew_soon'))+'</p>'+
       '<h1>'+esc(d.title)+' '+esc(whenText(n))+'</h1>'+
-      '<p class="sub">'+(more>0?'And '+plural(more,'other document')+' '+(more===1?'is':'are')+' inside the alarm window.':'You\u2019ll get an email for this automatically.')+'</p>'+
-      '<div class="cta"><button class="btn" type="button" data-open="'+esc(d.id)+'">Open document</button>'+
-      (calLink(d)?'<a class="btn" target="_blank" rel="noopener" href="'+esc(calLink(d))+'">Add to Google Calendar</a>':'')+'</div>';
+      '<p class="sub">'+moreText+'</p>'+
+      '<div class="cta"><button class="btn" type="button" data-open="'+esc(d.id)+'">'+t('hero_open_doc')+'</button>'+
+      (calLink(d)?'<a class="btn" target="_blank" rel="noopener" href="'+esc(calLink(d))+'">'+t('hero_add_calendar')+'</a>':'')+'</div>';
   } else if(dated.length){
     var nx=dated[0];h.dataset.tone='green';
-    h.innerHTML='<p class="kicker">All clear</p><h1>Nothing needs renewing right now.</h1><p class="sub">Next up: '+esc(nx.title)+' '+esc(whenText(daysLeft(nx)))+'.</p>';
+    h.innerHTML='<p class="kicker">'+t('hero_all_clear')+'</p><h1>'+t('hero_nothing_needs_renew')+'</h1><p class="sub">'+t('hero_next_up',{title:esc(nx.title),when:esc(whenText(daysLeft(nx)))})+'</p>';
   } else {
     h.dataset.tone='none';
-    h.innerHTML='<p class="kicker">Stored safely</p><h1>'+plural(docs.length,'document')+' in your vault.</h1><p class="sub">None of them has an expiry date yet.</p>';
+    var count=LANG==='bn'?(docs.length+'\u099f\u09bf \u09a1\u0995\u09c1\u09ae\u09c7\u09a8\u09cd\u099f'):plural(docs.length,'document');
+    h.innerHTML='<p class="kicker">'+t('hero_stored_safely')+'</p><h1>'+count+' '+(LANG==='bn'?'\u0986\u09aa\u09a8\u09be\u09b0 \u09ad\u09b2\u09cd\u099f\u09c7\u0964':'in your vault.')+'</h1><p class="sub">'+t('hero_no_expiry_yet')+'</p>';
   }
 }
 
 function countBlock(d){
-  var n=daysLeft(d),t=tone(d);
-  if(n===null)return '<span class="count none"><b>&ndash;</b><small>no expiry</small></span>';
-  if(n<0)return '<span class="count red"><b>'+(-n)+'</b><small>'+(n===-1?'day':'days')+' overdue</small></span>';
-  if(n===0)return '<span class="count red"><b>0</b><small>expires today</small></span>';
-  return '<span class="count '+t+'"><b>'+n+'</b><small>'+(n===1?'day':'days')+' left</small></span>';
+  var n=daysLeft(d),tn=tone(d);
+  if(n===null)return '<span class="count none"><b>&ndash;</b><small>'+t('no_expiry')+'</small></span>';
+  if(n<0){
+    var overdueLabel=LANG==='bn'?'দিন বাকি (মেয়াদোত্তীর্ণ)':((n===-1?'day':'days')+' overdue');
+    return '<span class="count red"><b>'+(-n)+'</b><small>'+overdueLabel+'</small></span>';
+  }
+  if(n===0)return '<span class="count red"><b>0</b><small>'+t('expires_today')+'</small></span>';
+  var leftLabel=LANG==='bn'?'দিন বাকি':((n===1?'day':'days')+' left');
+  return '<span class="count '+tn+'"><b>'+n+'</b><small>'+leftLabel+'</small></span>';
+}
+
+function renderNudge(){
+  var el=$('#nudge');
+  if(nudgeDismissed){el.hidden=true;return;}
+  var present={};
+  docs.forEach(function(d){present[d.type]=true;});
+  var have=COMMON_TYPES.filter(function(k){return present[k];}).length;
+  var missing=COMMON_TYPES.filter(function(k){return !present[k];});
+  if(!missing.length){el.hidden=true;return;}
+  var next=TYPES[missing[0]];
+  var nextLabel=esc(LANG==='bn'?typeLabel(next):next.label.toLowerCase());
+  el.hidden=false;
+  el.innerHTML='<p>'+t('nudge_text',{have:have,total:COMMON_TYPES.length,label:nextLabel})+'</p>'+
+    '<div class="cta"><button class="btn small" type="button" id="nudgeAdd">'+t('nudge_add',{label:esc(typeLabel(next))})+'</button><button class="btn small" type="button" id="nudgeDismiss">'+t('nudge_dismiss')+'</button></div>';
+  $('#nudgeAdd').addEventListener('click',function(){
+    openForm();
+    $('#f-type').value=missing[0];
+    $('#f-type').dispatchEvent(new Event('change'));
+  });
+  $('#nudgeDismiss').addEventListener('click',function(){nudgeDismissed=true;renderNudge();});
 }
 
 function render(){
+  applyStaticI18n();
+  renderNudge();
   renderHero();
   var counts={all:docs.length,soon:docs.filter(needsAttention).length,none:docs.filter(function(d){return !d.expiry;}).length};
-  var tabs=[['all','All'],['soon','Expiring soon'],['none','No expiry']];
-  $('#tabs').innerHTML=tabs.map(function(t){
-    return '<button type="button" class="tab" data-tab="'+t[0]+'" aria-pressed="'+(filter===t[0])+'">'+t[1]+'<span class="n">'+counts[t[0]]+'</span></button>';
+  var tabs=[['all',t('tab_all')],['soon',t('tab_soon')],['none',t('tab_none')]];
+  $('#tabs').innerHTML=tabs.map(function(tb){
+    return '<button type="button" class="tab" data-tab="'+tb[0]+'" aria-pressed="'+(filter===tb[0])+'">'+tb[1]+'<span class="n">'+counts[tb[0]]+'</span></button>';
   }).join('');
   $('#toolbar').hidden=!docs.length;
 
@@ -686,30 +901,32 @@ function render(){
   var list=sortedDocs(docs).filter(function(d){
     if(filter==='soon'&&!needsAttention(d))return false;
     if(filter==='none'&&d.expiry)return false;
-    if(q){var hay=(d.title+' '+d.holder+' '+TYPES[d.type].label+' '+(d.notes||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
+    if(q){var Td=TYPES[d.type]||TYPES.other;var hay=(d.title+' '+d.holder+' '+Td.label+' '+(Td.labelBn||'')+' '+(d.notes||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
   });
 
   var ul=$('#list'),em=$('#empty');
   if(!docs.length){
     ul.innerHTML='';em.hidden=false;
-    em.innerHTML='<h2>Start with the one that expires first</h2><p>Passport, trade licence, insurance policy. Add the expiry date and get an automatic email before it lapses.</p>'+
-      '<div class="cta"><button class="btn primary" type="button" data-act="add">Add your first document</button></div>';
+    em.innerHTML='<h2>'+t('empty_first_h2')+'</h2><p>'+t('empty_first_p')+'</p>'+
+      '<div class="cta"><button class="btn primary" type="button" data-act="add">'+t('empty_first_cta')+'</button></div>';
   } else if(!list.length){
     ul.innerHTML='';em.hidden=false;
-    em.innerHTML='<h2>No matches</h2><p>Try a different search or filter.</p>';
+    em.innerHTML='<h2>'+t('empty_nomatch_h2')+'</h2><p>'+t('empty_nomatch_p')+'</p>';
   } else {
     em.hidden=true;
     ul.innerHTML=list.map(function(d){
       var n=daysLeft(d),T=TYPES[d.type]||TYPES.other;
-      var dateLine=d.expiry?('<span class="d '+(tone(d)==='red'?'red':'')+'">'+(n<0?'Expired ':'Expires ')+esc(fmt(d.expiry))+'</span>'):'<span class="d">Never expires</span>';
+      var expiredLabel=LANG==='bn'?'\u09ae\u09c7\u09af\u09bc\u09be\u09a6 \u09b6\u09c7\u09b7 \u09b9\u09af\u09bc\u09c7\u099b\u09c7 ':'Expired ', expiresLabel=LANG==='bn'?'\u09ae\u09c7\u09af\u09bc\u09be\u09a6 \u09b6\u09c7\u09b7 \u09b9\u09ac\u09c7 ':'Expires ';
+      var dateLine=d.expiry?('<span class="d '+(tone(d)==='red'?'red':'')+'">'+(n<0?expiredLabel:expiresLabel)+esc(fmt(d.expiry))+'</span>'):('<span class="d">'+t('never_expires')+'</span>');
+      var filesLabel=d.files&&d.files.length?(', '+(LANG==='bn'?(d.files.length+'\u099f\u09bf \u09ab\u09be\u0987\u09b2'):plural(d.files.length,'file'))):'';
       return '<li><button type="button" class="row" data-open="'+esc(d.id)+'">'+countBlock(d)+
         '<span class="info"><span class="t">'+T.icon+' '+esc(d.title)+'</span>'+dateLine+
-        '<span class="s">'+esc(T.label)+(d.holder?', '+esc(d.holder):'')+(d.files&&d.files.length?', '+plural(d.files.length,'file'):'')+'</span></span>'+
+        '<span class="s">'+esc(typeLabel(T))+(d.holder?', '+esc(d.holder):'')+filesLabel+'</span></span>'+
         '<span class="chev" aria-hidden="true">&rsaquo;</span></button></li>';
     }).join('');
   }
-  $('#foot').textContent='A daily check on the server emails you automatically when a document enters its alarm window \u2014 no need to keep this page open.';
+  $('#foot').textContent=t('footer_text');
 }
 
 $('#tabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(!b)return;filter=b.dataset.tab;render();});
@@ -723,46 +940,62 @@ $('#addBtn').addEventListener('click',function(){openForm();});
 function mask(n){if(!n)return '';var s=String(n);return s.length<=4?'•'.repeat(s.length):'•'.repeat(Math.min(s.length-4,10))+s.slice(-4);}
 function openDetail(id){
   var d=docs.find(function(x){return x.id===id;});if(!d)return;
-  var T=TYPES[d.type]||TYPES.other,n=daysLeft(d),t=tone(d);
+  var T=TYPES[d.type]||TYPES.other,n=daysLeft(d),tn=tone(d);
   $('#viewTitle').textContent=T.icon+' '+d.title;
-  var status=n===null?'Never expires':(n<0?'Expired '+plural(-n,'day')+' ago':n===0?'Expires today':plural(n,'day')+' left');
-  var html='<span class="status-line '+t+'">'+esc(status)+'</span><dl class="facts">';
-  html+='<div><dt>Type</dt><dd>'+esc(T.label)+'</dd></div>';
-  if(d.holder)html+='<div><dt>Belongs to</dt><dd>'+esc(d.holder)+'</dd></div>';
-  if(d.number)html+='<div><dt>Document number</dt><dd class="numrow"><code id="numTxt">'+esc(mask(d.number))+'</code><button class="btn small" type="button" id="revealBtn">Show</button><button class="btn small" type="button" id="copyBtn">Copy</button></dd></div>';
-  if(d.issue)html+='<div><dt>Issued</dt><dd>'+esc(fmt(d.issue))+'</dd></div>';
-  if(d.expiry)html+='<div><dt>Expires</dt><dd>'+esc(fmt(d.expiry))+' (alarm '+plural(d.lead||30,'day')+' before)</dd></div>';
-  if(d.notes)html+='<div><dt>Notes</dt><dd>'+esc(d.notes).replace(/\n/g,'<br>')+'</dd></div>';
+  var status;
+  if(n===null)status=t('never_expires');
+  else if(n<0)status=LANG==='bn'?((-n)+' দিন আগে মেয়াদ শেষ হয়েছে'):('Expired '+plural(-n,'day')+' ago');
+  else if(n===0)status=t('expires_today');
+  else status=LANG==='bn'?(n+' দিন বাকি'):(plural(n,'day')+' left');
+  var html='<span class="status-line '+tn+'">'+esc(status)+'</span><dl class="facts">';
+  html+='<div><dt>'+t('dt_type')+'</dt><dd>'+esc(typeLabel(T))+'</dd></div>';
+  if(d.holder)html+='<div><dt>'+t('dt_belongs')+'</dt><dd>'+esc(d.holder)+'</dd></div>';
+  if(d.number)html+='<div><dt>'+t('dt_number')+'</dt><dd class="numrow"><code id="numTxt">'+esc(mask(d.number))+'</code><button class="btn small" type="button" id="revealBtn">'+t('btn_show')+'</button><button class="btn small" type="button" id="copyBtn">'+t('btn_copy')+'</button></dd></div>';
+  if(d.issue)html+='<div><dt>'+t('dt_issued')+'</dt><dd>'+esc(fmt(d.issue))+'</dd></div>';
+  if(d.expiry){
+    var alarmNote=LANG==='bn'?('(মেয়াদের '+(d.lead||30)+' দিন আগে অ্যালার্ম)'):('(alarm '+plural(d.lead||30,'day')+' before)');
+    html+='<div><dt>'+t('dt_expires')+'</dt><dd>'+esc(fmt(d.expiry))+' '+alarmNote+'</dd></div>';
+  }
+  if(d.notes)html+='<div><dt>'+t('dt_notes')+'</dt><dd>'+esc(d.notes).replace(/\n/g,'<br>')+'</dd></div>';
   if(d.files&&d.files.length){
-    html+='<div><dt>Files</dt><dd><ul class="files">'+d.files.map(function(f){
-      return '<li><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span><button class="btn small" type="button" data-view="'+esc(f.id)+'">View</button></li>';
+    html+='<div><dt>'+t('dt_files')+'</dt><dd><ul class="files">'+d.files.map(function(f){
+      return '<li><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span><button class="btn small" type="button" data-view="'+esc(f.id)+'">'+t('btn_view')+'</button></li>';
     }).join('')+'</ul><div class="preview" id="preview"></div></dd></div>';
+  }
+  if(d.history&&d.history.length){
+    html+='<div><dt>'+t('dt_history')+'</dt><dd><ul class="files">'+d.history.slice().reverse().map(function(h){
+      var archived=h.archivedAt?new Date(h.archivedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
+      var expiredLine=LANG==='bn'?('মেয়াদ শেষ হয়েছিল '+esc(fmt(h.expiry))):('Expired '+esc(fmt(h.expiry)));
+      var archivedLine=archived?('<small>'+(LANG==='bn'?'সংরক্ষণ করা হয়েছে ':'Archived ')+esc(archived)+'</small>'):'';
+      return '<li><span class="nm">'+expiredLine+(h.number?(' · #'+esc(mask(h.number))):'')+archivedLine+'</span></li>';
+    }).join('')+'</ul></dd></div>';
   }
   html+='</dl>';
   $('#viewBody').innerHTML=html;
 
   var cl=calLink(d);
   $('#viewActions').innerHTML=
-    '<button class="btn" type="button" id="editBtn">Edit</button>'+
-    (cl?'<a class="btn" target="_blank" rel="noopener" href="'+esc(cl)+'">Add to Google Calendar</a>':'')+
-    '<span class="grow"></span><button class="btn danger" type="button" id="delBtn">Delete</button>';
+    '<button class="btn" type="button" id="editBtn">'+t('btn_edit')+'</button>'+
+    '<a class="btn" target="_blank" rel="noopener" href="'+esc(whatsAppLink(d))+'">'+t('share_whatsapp')+'</a>'+
+    (cl?'<a class="btn" target="_blank" rel="noopener" href="'+esc(cl)+'">'+t('hero_add_calendar')+'</a>':'')+
+    '<span class="grow"></span><button class="btn danger" type="button" id="delBtn">'+t('btn_delete')+'</button>';
 
   var shown=false,rb=$('#revealBtn');
   if(rb){
-    rb.addEventListener('click',function(){shown=!shown;$('#numTxt').textContent=shown?d.number:mask(d.number);rb.textContent=shown?'Hide':'Show';});
+    rb.addEventListener('click',function(){shown=!shown;$('#numTxt').textContent=shown?d.number:mask(d.number);rb.textContent=shown?t('btn_hide'):t('btn_show');});
     $('#copyBtn').addEventListener('click',function(){
-      try{navigator.clipboard.writeText(d.number).then(function(){toast('Number copied');},function(){toast('Copy is blocked here. Tap Show and copy by hand.');});}
-      catch(e){toast('Copy is blocked here. Tap Show and copy by hand.');}
+      try{navigator.clipboard.writeText(d.number).then(function(){toast(t('toast_number_copied'));},function(){toast(t('copy_blocked'));});}
+      catch(e){toast(t('copy_blocked'));}
     });
   }
   $('#editBtn').addEventListener('click',function(){$('#viewDlg').close();openForm(d.id);});
   var armed=false,db=$('#delBtn');
   db.addEventListener('click',function(){
-    if(!armed){armed=true;db.classList.add('armed');db.textContent='Tap again to delete';return;}
+    if(!armed){armed=true;db.classList.add('armed');db.textContent=t('btn_delete_confirm');return;}
     db.disabled=true;
     api('/api/documents/'+d.id,{method:'DELETE'}).then(function(){
-      $('#viewDlg').close();toast('Deleted');loadDocs();
-    }).catch(function(e){toast(e.error||'Could not delete.');db.disabled=false;});
+      $('#viewDlg').close();toast(t('toast_deleted'));loadDocs();
+    }).catch(function(e){toast(e.error||t('err_could_not_delete'));db.disabled=false;});
   });
   $('#viewBody').querySelectorAll('[data-view]').forEach(function(b){
     b.addEventListener('click',function(){viewFile(b.dataset.view,b);});
@@ -772,7 +1005,7 @@ function openDetail(id){
 
 var urls=[];
 function viewFile(fid,btn){
-  btn.disabled=true;btn.textContent='Opening…';
+  btn.disabled=true;btn.textContent=LANG==='bn'?'খোলা হচ্ছে…':'Opening…';
   fetch(API_BASE.replace(/\/$/,'')+'/api/files/'+fid,{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
     if(!r.ok)throw new Error();
     var mime=r.headers.get('Content-Type')||'';
@@ -780,30 +1013,41 @@ function viewFile(fid,btn){
   }).then(function(res){
     var url=URL.createObjectURL(res.blob);urls.push(url);
     if(res.mime.indexOf('image/')===0){
-      $('#preview').innerHTML='<img src="'+url+'" alt="">';btn.textContent='Shown below';
+      $('#preview').innerHTML='<img src="'+url+'" alt="">';btn.textContent=LANG==='bn'?'নিচে দেখানো হয়েছে':'Shown below';
     } else {
-      var a=document.createElement('a');a.className='btn small';a.textContent='Open file';a.href=url;a.target='_blank';a.rel='noopener';
+      var a=document.createElement('a');a.className='btn small';a.textContent=t('btn_open_file');a.href=url;a.target='_blank';a.rel='noopener';
       btn.replaceWith(a);
     }
-  }).catch(function(){btn.disabled=false;btn.textContent='View';toast('Could not open this file');});
+  }).catch(function(){btn.disabled=false;btn.textContent=t('btn_view');toast(t('err_could_not_open_file'));});
 }
 $('#viewDlg').addEventListener('close',function(){urls.forEach(function(u){URL.revokeObjectURL(u);});urls=[];});
 
 /* ---------------- form dialog ---------------- */
-(function(){$('#f-type').innerHTML=Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k].icon+' '+TYPES[k].label+'</option>';}).join('');})();
+function renderTypeOptions(){
+  $('#f-type').innerHTML=Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k].icon+' '+esc(typeLabel(TYPES[k]))+'</option>';}).join('');
+}
+renderTypeOptions();
 $('#f-type').addEventListener('change',function(){
   var T=TYPES[this.value];
   if(!editingId){$('#f-lead').value=String(T.lead);}
-  var t=$('#f-title');if(!t.value||t.dataset.auto==='1'){t.value=T.name;t.dataset.auto='1';}
+  var ti=$('#f-title');if(!ti.value||ti.dataset.auto==='1'){ti.value=T.name;ti.dataset.auto='1';}
+  // Prefill a Bangladesh-specific tip for documents people usually don't
+  // know the renewal quirks of — only while adding, and only if the
+  // notes field hasn't been touched yet.
+  var n=$('#f-notes'),hint=typeHint(T);
+  if(!editingId&&hint&&(!n.value||n.dataset.auto==='1')){n.value=hint;n.dataset.auto='1';}
+  else if(!editingId&&!hint&&n.dataset.auto==='1'){n.value='';}
 });
 $('#f-title').addEventListener('input',function(){this.dataset.auto='0';});
+$('#f-notes').addEventListener('input',function(){this.dataset.auto='0';});
 $('#f-expiry').addEventListener('input',function(){$('#leadWrap').hidden=!this.value;});
 
 var editingId=null, existingFiles=[], pendingFile=null;
 function renderFileList(){
   var ul=$('#fileList');
+  var newSuffix=LANG==='bn'?' (নতুন)':' (new)';
   var items=existingFiles.map(function(f){return '<li><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span></li>';});
-  if(pendingFile)items.push('<li><span class="nm">'+esc(pendingFile.name)+'<small>'+sizeText(pendingFile.size)+' (new)</small></span><button type="button" class="btn small" id="rmPending">Remove</button></li>');
+  if(pendingFile)items.push('<li><span class="nm">'+esc(pendingFile.name)+'<small>'+sizeText(pendingFile.size)+newSuffix+'</small></span><button type="button" class="btn small" id="rmPending">'+t('remove')+'</button></li>');
   ul.innerHTML=items.join('');
   var rm=$('#rmPending');if(rm)rm.addEventListener('click',function(){pendingFile=null;$('#f-files').value='';renderFileList();});
 }
@@ -811,7 +1055,7 @@ $('#f-files').addEventListener('change',function(){
   var msg=$('#formMsg');msg.textContent='';
   var f=this.files[0];
   if(!f)return;
-  if(f.size>6*1024*1024){msg.textContent='That file is larger than 6 MB.';this.value='';return;}
+  if(f.size>6*1024*1024){msg.textContent=t('err_file_too_large');this.value='';return;}
   pendingFile=f;renderFileList();
 });
 
@@ -819,7 +1063,7 @@ function openForm(id){
   editingId=id||null;pendingFile=null;
   var d=id?docs.find(function(x){return x.id===id;}):null;
   existingFiles=d&&d.files?d.files:[];
-  $('#formTitle').textContent=d?'Edit document':'Add document';
+  $('#formTitle').textContent=d?t('form_title_edit'):t('form_title_add');
   $('#f-type').value=d?d.type:'passport';
   var T=TYPES[$('#f-type').value];
   $('#f-title').value=d?d.title:T.name;$('#f-title').dataset.auto=d?'0':'1';
@@ -828,12 +1072,13 @@ function openForm(id){
   $('#f-issue').value=d?d.issue||'':'';
   $('#f-expiry').value=d?d.expiry||'':'';
   $('#f-lead').value=String(d?(d.lead||30):T.lead);
-  $('#f-notes').value=d?d.notes||'':'';
+  $('#f-notes').value=d?(d.notes||''):(typeHint(T)||'');
+  $('#f-notes').dataset.auto=d?'0':'1';
   $('#leadWrap').hidden=!$('#f-expiry').value;
   $('#formMsg').textContent='';
   $('#f-files').value='';
   renderFileList();
-  $('#saveBtn').disabled=false;$('#saveBtn').textContent='Save document';
+  $('#saveBtn').disabled=false;$('#saveBtn').textContent=t('save_doc');
   $('#formDlg').showModal();
   setTimeout(function(){$('#f-title').focus();},30);
 }
@@ -843,11 +1088,11 @@ $('#form').addEventListener('submit',function(e){
   var msg=$('#formMsg'),btn=$('#saveBtn');msg.textContent='';
   var title=$('#f-title').value.trim();
   var issue=$('#f-issue').value,expiry=$('#f-expiry').value;
-  if(!title){msg.textContent='Give the document a name.';$('#f-title').focus();return;}
-  if(issue&&expiry&&expiry<issue){msg.textContent='The expiry date is before the issue date.';return;}
+  if(!title){msg.textContent=t('err_give_name');$('#f-title').focus();return;}
+  if(issue&&expiry&&expiry<issue){msg.textContent=t('err_expiry_before_issue');return;}
   var payload={type:$('#f-type').value,title:title,holder:$('#f-holder').value.trim(),number:$('#f-number').value.trim(),
     issue:issue,expiry:expiry,lead:Number($('#f-lead').value)||30,notes:$('#f-notes').value.trim()};
-  btn.disabled=true;btn.textContent='Saving…';
+  btn.disabled=true;btn.textContent=t('saving');
 
   var save = editingId
     ? api('/api/documents/'+editingId,{method:'PUT',body:JSON.stringify(payload)}).then(function(){return editingId;})
@@ -858,10 +1103,10 @@ $('#form').addEventListener('submit',function(e){
     var fd=new FormData();fd.append('file',pendingFile);
     return api('/api/documents/'+docId+'/files',{method:'POST',body:fd}).then(function(){return docId;});
   }).then(function(){
-    $('#formDlg').close();toast(editingId?'Changes saved':'Document saved');loadDocs();
+    $('#formDlg').close();toast(editingId?t('toast_changes_saved'):t('toast_doc_saved'));loadDocs();
   }).catch(function(e){
-    msg.textContent=e.error||'Could not save.';
-  }).then(function(){btn.disabled=false;btn.textContent='Save document';});
+    msg.textContent=e.error||t('err_could_not_save');
+  }).then(function(){btn.disabled=false;btn.textContent=t('save_doc');});
 });
 
 document.addEventListener('click',function(e){

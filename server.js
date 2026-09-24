@@ -35,7 +35,30 @@ function daysLeft(expiry) {
   return Math.round((e - t) / 86400000);
 }
 function publicUser(u) {
-  return { id: u.id, name: u.name, email: u.email, phone: u.phone, plan: u.plan };
+  return {
+    id: u.id, name: u.name, email: u.email, phone: u.phone, plan: u.plan,
+    lastLoginAt: u.last_login_at || null, lastLoginDevice: u.last_login_device || null,
+  };
+}
+// Turns a User-Agent header into a short, friendly label like "Chrome on
+// Windows" for the account page's "last signed in" trust line. Best-effort
+// only — an unrecognized UA just falls back to generic labels.
+function simplifyDevice(ua) {
+  if (!ua) return null;
+  ua = String(ua);
+  var os = 'your device';
+  if (/iPhone/i.test(ua)) os = 'iPhone';
+  else if (/iPad/i.test(ua)) os = 'iPad';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Mac OS X/i.test(ua)) os = 'Mac';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+  var browser = 'a browser';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/CriOS/i.test(ua) || (/Chrome\//i.test(ua) && !/Chromium/i.test(ua))) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+  return browser + ' on ' + os;
 }
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
@@ -99,7 +122,7 @@ app.post('/api/login', wrap(async (req, res) => {
   const ok = await bcrypt.compare(password || '', u.password_hash);
   if (!ok) return res.status(401).json({ error: 'Wrong password.' });
   const token = jwt.sign({ uid: u.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-  db.touchLastLogin(u.id).catch(e => console.error('Could not record last login for', u.id, e.message));
+  await db.touchLastLogin(u.id, simplifyDevice(req.headers['user-agent'])).catch(e => console.error('Could not record last login for', u.id, e.message));
   res.json({ token, user: publicUser(u) });
 }));
 
@@ -211,10 +234,19 @@ app.put('/api/documents/:id', auth, wrap(async (req, res) => {
   if (!d) return res.status(404).json({ error: 'Not found.' });
   const b = req.body || {};
   if (!b.title) return res.status(400).json({ error: 'Give the document a name.' });
-  await db.updateDocument(d.id, {
+  const patch = {
     type: b.type || d.type, title: b.title, holder: b.holder || '', number: b.number || '',
     issue: b.issue || '', expiry: b.expiry || '', lead: Number(b.lead) || 30, notes: b.notes || ''
-  });
+  };
+  // Renewal: the expiry date moved to a new date. Quietly keep the old
+  // number/issue/expiry so it's still there for insurance claims, visa
+  // applications, etc. that ask about the previous document.
+  if (d.expiry && patch.expiry && patch.expiry !== d.expiry) {
+    const history = Array.isArray(d.history) ? d.history.slice() : [];
+    history.push({ number: d.number || '', issue: d.issue || '', expiry: d.expiry, archivedAt: Date.now() });
+    patch.history = JSON.stringify(history);
+  }
+  await db.updateDocument(d.id, patch);
   res.json({ ok: true });
 }));
 

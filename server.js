@@ -233,7 +233,18 @@ app.post('/api/me/pin/verify', auth, wrap(async (req, res) => {
 
 /* ---------------- profiles (Family Vault) ---------------- */
 app.get('/api/profiles', auth, wrap(async (req, res) => {
-  res.json({ profiles: await db.listProfilesByUser(req.userId) });
+  let list = await db.listProfilesByUser(req.userId);
+  // Self-heal: accounts created before Family Vault shipped never got the
+  // automatic "Me" profile signup now creates. Give them one on first load
+  // instead of leaving the picker with nothing but "No one in particular".
+  if (!list.length) {
+    const u = await db.findUserById(req.userId);
+    if (u) {
+      await db.insertProfile({ id: uuid(), user_id: req.userId, name: u.name, relation: 'self', created_at: Date.now() }).catch(e => console.error('Could not backfill default profile for', req.userId, e.message));
+      list = await db.listProfilesByUser(req.userId);
+    }
+  }
+  res.json({ profiles: list });
 }));
 
 app.post('/api/profiles', auth, wrap(async (req, res) => {
@@ -659,8 +670,6 @@ const PORT = process.env.PORT || 4000;
 db.init()
   .then(() => {
     app.listen(PORT, () => console.log('Life Documents API listening on :' + PORT));
-    setTimeout(runReminderSweep, 15000);
-    setTimeout(runSubscriptionReminderSweep, 20000);
   })
   .catch(e => {
     console.error('Could not connect to the database. Check DATABASE_URL in your .env:', e.message);

@@ -508,14 +508,14 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 'use strict';
 
 var TYPES = {
-  nid:{label:'National ID (NID)',labelBn:'জাতীয় পরিচয়পত্র (NID)',icon:'🪪',lead:30,name:'National ID',cat:'other'},
-  passport:{label:'Passport',labelBn:'পাসপোর্ট',icon:'🛂',lead:90,name:'Passport',cat:'other'},
-  birth:{label:'Birth certificate',labelBn:'জন্ম নিবন্ধন সনদ',icon:'👶',lead:30,name:'Birth certificate',cat:'other'},
+  nid:{label:'National ID (NID)',labelBn:'জাতীয় পরিচয়পত্র (NID)',icon:'🪪',lead:30,name:'National ID',cat:'identity'},
+  passport:{label:'Passport',labelBn:'পাসপোর্ট',icon:'🛂',lead:90,name:'Passport',cat:'identity'},
+  birth:{label:'Birth certificate',labelBn:'জন্ম নিবন্ধন সনদ',icon:'👶',lead:30,name:'Birth certificate',cat:'identity'},
   vehicle:{label:'Vehicle document',labelBn:'যানবাহনের কাগজ',icon:'🚗',lead:30,name:'Vehicle document',cat:'vehicle',hint:'Registration, fitness certificate, driving licence, or vehicle insurance — note which one this is.',hintBn:'রেজিস্ট্রেশন, ফিটনেস সার্টিফিকেট, ড্রাইভিং লাইসেন্স, বা গাড়ির বিমা — কোনটি তা নোটে লিখে রাখুন।'},
-  trade:{label:'Trade licence',labelBn:'ট্রেড লাইসেন্স',icon:'🏪',lead:30,name:'Trade licence',cat:'other',hint:'Usually renews every year — check the renewal month with your City Corporation / Union Parishad office.',hintBn:'সাধারণত প্রতি বছর নবায়ন করতে হয় — সিটি কর্পোরেশন / ইউনিয়ন পরিষদ অফিসে নবায়নের মাস জেনে নিন।'},
-  tin:{label:'TIN certificate',labelBn:'টিআইএন সনদ',icon:'🧮',lead:30,name:'TIN certificate',cat:'other',hint:'Keep the TIN number handy every tax season; note where the certificate is filed.',hintBn:'প্রতি কর মৌসুমে টিআইএন নম্বরটি হাতের কাছে রাখুন; সনদটি কোথায় রাখা আছে তা নোট করুন।'},
-  udc:{label:'Union Digital Centre document',labelBn:'ইউনিয়ন ডিজিটাল সেন্টারের কাগজ',icon:'🏛️',lead:30,name:'UDC document',cat:'other',hint:'e.g. birth/death registration, land records, or another UDC-issued paper — note which service issued it.',hintBn:'যেমন: জন্ম/মৃত্যু নিবন্ধন, জমির রেকর্ড, বা অন্য কোনো UDC-ইস্যুকৃত কাগজ — কোন সেবা থেকে ইস্যু হয়েছে তা নোট করুন।'},
-  insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️',lead:30,name:'Insurance policy',cat:'other'},
+  trade:{label:'Trade licence',labelBn:'ট্রেড লাইসেন্স',icon:'🏪',lead:30,name:'Trade licence',cat:'business',hint:'Usually renews every year — check the renewal month with your City Corporation / Union Parishad office.',hintBn:'সাধারণত প্রতি বছর নবায়ন করতে হয় — সিটি কর্পোরেশন / ইউনিয়ন পরিষদ অফিসে নবায়নের মাস জেনে নিন।'},
+  tin:{label:'TIN certificate',labelBn:'টিআইএন সনদ',icon:'🧮',lead:30,name:'TIN certificate',cat:'business',hint:'Keep the TIN number handy every tax season; note where the certificate is filed.',hintBn:'প্রতি কর মৌসুমে টিআইএন নম্বরটি হাতের কাছে রাখুন; সনদটি কোথায় রাখা আছে তা নোট করুন।'},
+  udc:{label:'Union Digital Centre document',labelBn:'ইউনিয়ন ডিজিটাল সেন্টারের কাগজ',icon:'🏛️',lead:30,name:'UDC document',cat:'identity',hint:'e.g. birth/death registration, land records, or another UDC-issued paper — note which service issued it.',hintBn:'যেমন: জন্ম/মৃত্যু নিবন্ধন, জমির রেকর্ড, বা অন্য কোনো UDC-ইস্যুকৃত কাগজ — কোন সেবা থেকে ইস্যু হয়েছে তা নোট করুন।'},
+  insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️',lead:30,name:'Insurance policy',cat:'insurance'},
   warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty',cat:'other'},
   property:{label:'Property document',labelBn:'সম্পত্তির দলিল',icon:'🏠',lead:60,name:'Property document',cat:'property'},
   certificate:{label:'Certificate',labelBn:'সার্টিফিকেট',icon:'🎓',lead:30,name:'Certificate',cat:'education'},
@@ -532,9 +532,12 @@ var URGENT_DAYS = 14;
 // Fixed top-line categories plus whatever the user types themselves — the
 // category field is free text, this is just the suggested/default set.
 var CATEGORIES = {
+  identity:{label:'Identity',labelBn:'পরিচয়পত্র',icon:'🪪'},
   vehicle:{label:'Vehicle',labelBn:'যানবাহন',icon:'🚗'},
   education:{label:'Education',labelBn:'শিক্ষা',icon:'🎓'},
   property:{label:'Property',labelBn:'সম্পত্তি',icon:'🏠'},
+  insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️'},
+  business:{label:'Business',labelBn:'ব্যবসা',icon:'🏪'},
   other:{label:'Other',labelBn:'অন্যান্য',icon:'📄'}
 };
 function categoryLabel(key){

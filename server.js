@@ -311,6 +311,64 @@ async function runReminderSweep() {
 }
 cron.schedule('0 9 * * *', runReminderSweep);
 
+/* ---------------- weekly "use your vault" follow-up email ---------------- */
+// Retention nudge, separate from the near-expiry reminders above: everyone
+// gets one email a week, but what it says depends on their vault —
+// empty vault, documents with no expiry date set (so we can't remind them
+// automatically), or a general check-in for an otherwise healthy vault.
+async function runWeeklyEngagementSweep() {
+  const now = Date.now();
+  const MIN_GAP_MS = 6.5 * 24 * 60 * 60 * 1000; // guards against double-sending the same week on a restart
+  const appLink = process.env.FRONTEND_URL || '';
+
+  const users = await db.weeklyEmailCandidates();
+  const withExpiry = await db.allDocumentsWithExpiry();
+  const nearestByUser = {};
+  for (const d of withExpiry) {
+    const dl = daysLeft(d.expiry);
+    if (dl === null) continue;
+    const cur = nearestByUser[d.user_id];
+    if (!cur || dl < cur.dl) nearestByUser[d.user_id] = { dl, title: d.title, expiry: d.expiry };
+  }
+
+  for (const u of users) {
+    if (!u.email) continue;
+    if (u.last_weekly_email_at && (now - Number(u.last_weekly_email_at)) < MIN_GAP_MS) continue;
+
+    let subject, body;
+    if (u.doc_count === 0) {
+      subject = 'Your Life Documents vault is still empty';
+      body = 'Hi ' + u.name + ',\n\n' +
+        'You haven\'t added any documents yet. Add your NID, passport, trade licence, insurance policy, or any document with an expiry date, and you\'ll get an automatic email reminder before it lapses.' +
+        (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
+        '\n\n— Life Documents';
+    } else if (u.missing_expiry_count > 0) {
+      subject = 'Quick check: ' + u.missing_expiry_count + ' of your documents have no expiry date';
+      body = 'Hi ' + u.name + ',\n\n' +
+        u.missing_expiry_count + ' of your ' + u.doc_count + ' saved document(s) don\'t have an expiry date set, so we can\'t remind you before they lapse. Open your vault and add the missing dates.' +
+        (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
+        '\n\n— Life Documents';
+    } else {
+      const nearest = nearestByUser[u.id];
+      subject = 'Weekly check-in: ' + u.doc_count + ' document(s) in your vault';
+      body = 'Hi ' + u.name + ',\n\n' +
+        'You have ' + u.doc_count + ' document(s) saved. Take a moment to check that everything is still accurate — especially the document number and expiry date on anything you\'ve recently renewed.' +
+        (nearest ? ('\n\nComing up: ' + nearest.title + ' ' + (nearest.dl < 0 ? ('expired ' + (-nearest.dl) + ' day(s) ago') : nearest.dl === 0 ? 'expires today' : ('expires in ' + nearest.dl + ' day(s)')) + ' (' + nearest.expiry + ').') : '') +
+        (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
+        '\n\n— Life Documents';
+    }
+
+    try {
+      await sendMail(u.email, subject, body);
+      await db.markWeeklyEmailSent(u.id, now);
+    } catch (e) {
+      console.error('Weekly follow-up email failed for', u.email, e.message);
+    }
+  }
+}
+// Monday 10:00 server time (UTC on Render) — mid-afternoon in Bangladesh.
+cron.schedule('0 10 * * 1', runWeeklyEngagementSweep);
+
 // generic error handler (from wrap())
 app.use((err, req, res, next) => {
   console.error(err);

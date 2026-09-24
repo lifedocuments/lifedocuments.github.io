@@ -27,6 +27,10 @@ async function init() {
     -- CREATE TABLE IF NOT EXISTS above won't add it to existing databases.
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at BIGINT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_device TEXT;
+    -- When the weekly "use your vault" follow-up email was last sent, so a
+    -- server restart (or a manually-triggered sweep) can't double-send it
+    -- to someone who already got this week's email.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS last_weekly_email_at BIGINT;
     CREATE TABLE IF NOT EXISTS documents(
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),
@@ -114,6 +118,23 @@ module.exports = {
   },
   async touchLastLogin(id, device) {
     await pool.query('UPDATE users SET last_login_at=$2, last_login_device=$3 WHERE id=$1', [id, Date.now(), device || null]);
+  },
+  // Everyone, with how many documents they have and how many of those are
+  // missing an expiry date — enough to pick which weekly follow-up email
+  // (empty vault / add expiry dates / general check-in) each person gets.
+  async weeklyEmailCandidates() {
+    const r = await pool.query(`
+      SELECT u.id, u.name, u.email, u.last_weekly_email_at,
+        COUNT(d.id)::int AS doc_count,
+        COUNT(*) FILTER (WHERE d.id IS NOT NULL AND (d.expiry IS NULL OR d.expiry = ''))::int AS missing_expiry_count
+      FROM users u
+      LEFT JOIN documents d ON d.user_id = u.id
+      GROUP BY u.id
+    `);
+    return r.rows;
+  },
+  async markWeeklyEmailSent(id, ts) {
+    await pool.query('UPDATE users SET last_weekly_email_at=$2 WHERE id=$1', [id, ts]);
   },
   async docCountsByUser() {
     const r = await pool.query('SELECT user_id, COUNT(*)::int c FROM documents GROUP BY user_id');

@@ -156,11 +156,15 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 .numrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .numrow code{font:600 17px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.03em}
 .files{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.files li{display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.files li{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.files .file-row{display:flex;align-items:center;gap:8px;justify-content:space-between}
 .files .nm{min-width:0;overflow-wrap:anywhere;font-size:15px}
 .files .nm small{display:block;color:var(--muted)}
 .preview{margin-top:10px}
 .preview img{max-width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+#formFilePreview img{max-height:220px;width:auto}
+.files .preview{margin-top:6px}
+.files .preview img{max-height:140px;width:auto}
 .admin-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .admin-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left;width:100%}
 .admin-row:hover{border-color:var(--muted)}
@@ -273,7 +277,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <label class="field"><span data-i18n="field_belongs">Belongs to</span><input id="f-holder" class="input" maxlength="60" placeholder="Me, Shop, Father…" data-i18n-ph="field_belongs_ph"></label>
         <label class="field"><span data-i18n="field_docnum">Document number</span><input id="f-number" class="input" maxlength="60" autocomplete="off"></label>
       </div>
-      <div class="g2">
+      <div class="g2" id="dateRow">
         <label class="field"><span data-i18n="field_issue">Issue date</span><input id="f-issue" class="input" type="date"></label>
         <label class="field"><span data-i18n="field_expiry">Expiry date</span><input id="f-expiry" class="input" type="date"><small data-i18n="field_expiry_hint">Leave empty if it never expires.</small></label>
       </div>
@@ -293,6 +297,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <input id="f-files" type="file" accept="image/*,application/pdf">
         <small data-i18n="field_file_hint">Up to 6 MB.</small>
         <ul id="fileList" class="files" style="margin-top:10px"></ul>
+        <div class="preview" id="formFilePreview"></div>
       </div>
       <p id="formMsg" class="msg" role="alert"></p>
     </div>
@@ -355,6 +360,7 @@ var TYPES = {
   warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty'},
   property:{label:'Property document',labelBn:'সম্পত্তির দলিল',icon:'🏠',lead:60,name:'Property document'},
   certificate:{label:'Certificate',labelBn:'সার্টিফিকেট',icon:'🎓',lead:30,name:'Certificate'},
+  scan:{label:'Photo / Scan',labelBn:'ছবি / স্ক্যান',icon:'🖼️',lead:30,name:'Photo / Scan',noExpiry:true,hint:'For a photo, ID scan, or any keepsake that has no expiry — just store it safely.',hintBn:'এমন একটা ছবি, পরিচয়পত্রের স্ক্যান, বা এমন কিছু যার মেয়াদ শেষ হয় না — শুধু নিরাপদে সংরক্ষণ করুন।'},
   other:{label:'Other',labelBn:'অন্যান্য',icon:'📄',lead:30,name:'Document'}
 };
 function typeLabel(T){ return (LANG==='bn' && T.labelBn) ? T.labelBn : T.label; }
@@ -959,8 +965,15 @@ function openDetail(id){
   if(d.notes)html+='<div><dt>'+t('dt_notes')+'</dt><dd>'+esc(d.notes).replace(/\n/g,'<br>')+'</dd></div>';
   if(d.files&&d.files.length){
     html+='<div><dt>'+t('dt_files')+'</dt><dd><ul class="files">'+d.files.map(function(f){
-      return '<li><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span><button class="btn small" type="button" data-view="'+esc(f.id)+'">'+t('btn_view')+'</button></li>';
-    }).join('')+'</ul><div class="preview" id="preview"></div></dd></div>';
+      var isImg=(f.mime||'').indexOf('image/')===0;
+      // Photos load and show themselves right away; PDFs/other files still
+      // need an explicit "View" tap to fetch and open them.
+      return '<li><div class="file-row"><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span>'+
+        (isImg?'':'<button class="btn small" type="button" data-view="'+esc(f.id)+'">'+t('btn_view')+'</button>')+
+        '</div>'+
+        (isImg?'<div class="preview" data-preview-for="'+esc(f.id)+'"><span class="msg info" style="margin:0">'+(LANG==='bn'?'ছবি লোড হচ্ছে…':'Loading image…')+'</span></div>':'')+
+        '</li>';
+    }).join('')+'</ul></dd></div>';
   }
   if(d.history&&d.history.length){
     html+='<div><dt>'+t('dt_history')+'</dt><dd><ul class="files">'+d.history.slice().reverse().map(function(h){
@@ -1000,24 +1013,41 @@ function openDetail(id){
   $('#viewBody').querySelectorAll('[data-view]').forEach(function(b){
     b.addEventListener('click',function(){viewFile(b.dataset.view,b);});
   });
+  // Photos fetch and show themselves as soon as the dialog opens — no need
+  // to tap "View" first just to see what was scanned.
+  if(d.files&&d.files.length){
+    d.files.filter(function(f){return (f.mime||'').indexOf('image/')===0;}).forEach(function(f){
+      loadImagePreview(f.id, '[data-preview-for="'+f.id+'"]');
+    });
+  }
   var dlg=$('#viewDlg');if(!dlg.open)dlg.showModal();
 }
 
 var urls=[];
+function loadImagePreview(fid,sel){
+  var el=$('#viewBody').querySelector(sel);
+  if(!el)return;
+  fetch(API_BASE.replace(/\/$/,'')+'/api/files/'+fid,{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
+    if(!r.ok)throw new Error();
+    return r.blob();
+  }).then(function(blob){
+    var url=URL.createObjectURL(blob);urls.push(url);
+    el=$('#viewBody').querySelector(sel); // the dialog may have re-rendered while this was in flight
+    if(el) el.innerHTML='<img src="'+url+'" alt="">';
+  }).catch(function(){
+    el=$('#viewBody').querySelector(sel);
+    if(el) el.innerHTML='<span class="msg" style="margin:0">'+t('err_could_not_open_file')+'</span>';
+  });
+}
 function viewFile(fid,btn){
   btn.disabled=true;btn.textContent=LANG==='bn'?'খোলা হচ্ছে…':'Opening…';
   fetch(API_BASE.replace(/\/$/,'')+'/api/files/'+fid,{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
     if(!r.ok)throw new Error();
-    var mime=r.headers.get('Content-Type')||'';
-    return r.blob().then(function(b){return {blob:b,mime:mime};});
-  }).then(function(res){
-    var url=URL.createObjectURL(res.blob);urls.push(url);
-    if(res.mime.indexOf('image/')===0){
-      $('#preview').innerHTML='<img src="'+url+'" alt="">';btn.textContent=LANG==='bn'?'নিচে দেখানো হয়েছে':'Shown below';
-    } else {
-      var a=document.createElement('a');a.className='btn small';a.textContent=t('btn_open_file');a.href=url;a.target='_blank';a.rel='noopener';
-      btn.replaceWith(a);
-    }
+    return r.blob();
+  }).then(function(blob){
+    var url=URL.createObjectURL(blob);urls.push(url);
+    var a=document.createElement('a');a.className='btn small';a.textContent=t('btn_open_file');a.href=url;a.target='_blank';a.rel='noopener';
+    btn.replaceWith(a);
   }).catch(function(){btn.disabled=false;btn.textContent=t('btn_view');toast(t('err_could_not_open_file'));});
 }
 $('#viewDlg').addEventListener('close',function(){urls.forEach(function(u){URL.revokeObjectURL(u);});urls=[];});
@@ -1027,6 +1057,14 @@ function renderTypeOptions(){
   $('#f-type').innerHTML=Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k].icon+' '+esc(typeLabel(TYPES[k]))+'</option>';}).join('');
 }
 renderTypeOptions();
+// Some types (e.g. a plain photo/scan) never have an expiry — hide the
+// date fields entirely for those so the form doesn't ask for something
+// that doesn't apply, rather than just leaving it optional.
+function applyDateRowVisibility(T){
+  var hide=!!T.noExpiry;
+  $('#dateRow').hidden=hide;
+  $('#leadWrap').hidden = hide || !$('#f-expiry').value;
+}
 $('#f-type').addEventListener('change',function(){
   var T=TYPES[this.value];
   if(!editingId){$('#f-lead').value=String(T.lead);}
@@ -1037,20 +1075,39 @@ $('#f-type').addEventListener('change',function(){
   var n=$('#f-notes'),hint=typeHint(T);
   if(!editingId&&hint&&(!n.value||n.dataset.auto==='1')){n.value=hint;n.dataset.auto='1';}
   else if(!editingId&&!hint&&n.dataset.auto==='1'){n.value='';}
+  if(T.noExpiry){ $('#f-issue').value=''; $('#f-expiry').value=''; }
+  applyDateRowVisibility(T);
 });
 $('#f-title').addEventListener('input',function(){this.dataset.auto='0';});
 $('#f-notes').addEventListener('input',function(){this.dataset.auto='0';});
 $('#f-expiry').addEventListener('input',function(){$('#leadWrap').hidden=!this.value;});
 
-var editingId=null, existingFiles=[], pendingFile=null;
+var editingId=null, existingFiles=[], pendingFile=null, formPreviewUrl=null;
 function renderFileList(){
   var ul=$('#fileList');
   var newSuffix=LANG==='bn'?' (নতুন)':' (new)';
-  var items=existingFiles.map(function(f){return '<li><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span></li>';});
-  if(pendingFile)items.push('<li><span class="nm">'+esc(pendingFile.name)+'<small>'+sizeText(pendingFile.size)+newSuffix+'</small></span><button type="button" class="btn small" id="rmPending">'+t('remove')+'</button></li>');
+  var items=existingFiles.map(function(f){return '<li><div class="file-row"><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span></div></li>';});
+  if(pendingFile)items.push('<li><div class="file-row"><span class="nm">'+esc(pendingFile.name)+'<small>'+sizeText(pendingFile.size)+newSuffix+'</small></span><button type="button" class="btn small" id="rmPending">'+t('remove')+'</button></div></li>');
   ul.innerHTML=items.join('');
   var rm=$('#rmPending');if(rm)rm.addEventListener('click',function(){pendingFile=null;$('#f-files').value='';renderFileList();});
+  updateFormPreview();
 }
+// Shows the chosen photo right in the form, before it's even saved — so
+// scanning/selecting the wrong image is obvious immediately instead of
+// only after opening the saved document later.
+function updateFormPreview(){
+  var el=$('#formFilePreview');
+  if(formPreviewUrl){ URL.revokeObjectURL(formPreviewUrl); formPreviewUrl=null; }
+  if(pendingFile && pendingFile.type && pendingFile.type.indexOf('image/')===0){
+    formPreviewUrl=URL.createObjectURL(pendingFile);
+    el.innerHTML='<img src="'+formPreviewUrl+'" alt="">';
+  } else {
+    el.innerHTML='';
+  }
+}
+$('#formDlg').addEventListener('close',function(){
+  if(formPreviewUrl){ URL.revokeObjectURL(formPreviewUrl); formPreviewUrl=null; }
+});
 $('#f-files').addEventListener('change',function(){
   var msg=$('#formMsg');msg.textContent='';
   var f=this.files[0];
@@ -1074,7 +1131,7 @@ function openForm(id){
   $('#f-lead').value=String(d?(d.lead||30):T.lead);
   $('#f-notes').value=d?(d.notes||''):(typeHint(T)||'');
   $('#f-notes').dataset.auto=d?'0':'1';
-  $('#leadWrap').hidden=!$('#f-expiry').value;
+  applyDateRowVisibility(T);
   $('#formMsg').textContent='';
   $('#f-files').value='';
   renderFileList();

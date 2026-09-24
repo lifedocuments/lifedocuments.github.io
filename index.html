@@ -164,6 +164,17 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 .admin-row .nm{font-weight:700;font-family:var(--display)}
 .admin-row .sub{color:var(--muted);font-size:14px}
 .admin-back{margin-bottom:14px}
+.admin-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+@media (min-width:420px){.admin-stats{grid-template-columns:repeat(4,1fr)}}
+.admin-stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.admin-stat b{display:block;font-family:var(--display);font-size:1.4rem;line-height:1.15}
+.admin-stat span{color:var(--muted);font-size:13px}
+.admin-stat.warn b{color:var(--amber)}
+.admin-stat.danger b{color:var(--red)}
+.admin-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.admin-toolbar input[type=search]{flex:1 1 180px;min-height:40px}
+.admin-toolbar select{flex:0 0 auto;min-height:40px;width:auto}
+.admin-count{color:var(--muted);font-size:13px;margin:0 0 8px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-weight:600;font-size:15px;z-index:99;max-width:calc(100% - 32px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 @media (prefers-reduced-motion: no-preference){
   dialog[open]{animation:pop .16s ease-out}
@@ -484,21 +495,74 @@ function enterApp(){
 
 /* ---------------- admin dashboard (owner only) ---------------- */
 function adminMask(n){if(!n)return '';var s=String(n);return s.length<=4?'•'.repeat(s.length):'•'.repeat(Math.min(s.length-4,10))+s.slice(-4);}
+function adminDateTime(ms){ return ms ? new Date(Number(ms)).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Never'; }
+function adminDate(ms){ return ms ? new Date(Number(ms)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'; }
+var adminQuery='', adminSort='newest', adminSearchTimer=null;
 $('#adminBtn').addEventListener('click',function(){ adminShowUsers(); $('#adminDlg').showModal(); });
 function adminShowUsers(){
-  $('#adminTitle').textContent='Admin \u2014 all users';
-  $('#adminBody').innerHTML='<p class="msg info">Loading…</p>';
-  api('/api/admin/users').then(function(data){
-    if(!data.users.length){ $('#adminBody').innerHTML='<p class="msg info">No users yet.</p>'; return; }
-    $('#adminBody').innerHTML='<ul class="admin-list">'+data.users.map(function(u){
+  $('#adminTitle').textContent='Admin — all users';
+  $('#adminBody').innerHTML=
+    '<div class="admin-stats" id="adminStats">'+
+      '<div class="admin-stat"><b>—</b><span>Total users</span></div>'+
+      '<div class="admin-stat"><b>—</b><span>Total documents</span></div>'+
+      '<div class="admin-stat warn"><b>—</b><span>Expiring this week</span></div>'+
+      '<div class="admin-stat danger"><b>—</b><span>Overdue</span></div>'+
+    '</div>'+
+    '<div class="admin-toolbar">'+
+      '<input type="search" id="adminSearch" class="input" placeholder="Search name, email, or phone…" value="'+esc(adminQuery)+'">'+
+      '<select id="adminSort" class="input">'+
+        '<option value="newest">Newest first</option>'+
+        '<option value="oldest">Oldest first</option>'+
+        '<option value="most_docs">Most documents</option>'+
+        '<option value="name">Name (A–Z)</option>'+
+      '</select>'+
+    '</div>'+
+    '<p class="admin-count" id="adminCount"></p>'+
+    '<div id="adminUserList"><p class="msg info">Loading…</p></div>';
+  $('#adminSort').value=adminSort;
+
+  api('/api/admin/stats').then(function(s){
+    var tiles=$('#adminStats').children;
+    tiles[0].querySelector('b').textContent=s.totalUsers;
+    tiles[1].querySelector('b').textContent=s.totalDocuments;
+    tiles[2].querySelector('b').textContent=s.expiringThisWeek;
+    tiles[3].querySelector('b').textContent=s.overdue;
+  }).catch(function(){ /* leave the dashes if this call fails */ });
+
+  adminLoadUsers();
+
+  $('#adminSearch').addEventListener('input',function(e){
+    adminQuery=e.target.value;
+    clearTimeout(adminSearchTimer);
+    adminSearchTimer=setTimeout(adminLoadUsers,300);
+  });
+  $('#adminSort').addEventListener('change',function(e){
+    adminSort=e.target.value;
+    adminLoadUsers();
+  });
+}
+function adminLoadUsers(){
+  var list=$('#adminUserList');
+  if(!list) return;
+  list.innerHTML='<p class="msg info">Loading…</p>';
+  var params=new URLSearchParams();
+  if(adminQuery) params.set('q',adminQuery);
+  if(adminSort) params.set('sort',adminSort);
+  api('/api/admin/users?'+params.toString()).then(function(data){
+    if(!$('#adminUserList')) return;
+    $('#adminCount').textContent=plural(data.users.length,'user');
+    if(!data.users.length){ list.innerHTML='<p class="msg info">No users match this search.</p>'; return; }
+    list.innerHTML='<ul class="admin-list">'+data.users.map(function(u){
       return '<li><button type="button" class="admin-row" data-user="'+esc(u.id)+'">'+
-        '<span><span class="nm">'+esc(u.name)+'</span><br><span class="sub">'+esc(u.email)+(u.phone?' \u00b7 '+esc(u.phone):'')+'</span></span>'+
+        '<span><span class="nm">'+esc(u.name)+'</span><br>'+
+        '<span class="sub">'+esc(u.email)+(u.phone?' · '+esc(u.phone):'')+'</span><br>'+
+        '<span class="sub">Last sign-in: '+esc(adminDateTime(u.last_login_at))+' · Joined '+esc(adminDate(u.created_at))+'</span></span>'+
         '<span class="sub">'+plural(u.documentCount,'document')+'</span></button></li>';
     }).join('')+'</ul>';
-    $('#adminBody').querySelectorAll('[data-user]').forEach(function(b){
+    list.querySelectorAll('[data-user]').forEach(function(b){
       b.addEventListener('click',function(){ adminShowUserDocs(b.dataset.user); });
     });
-  }).catch(function(e){ $('#adminBody').innerHTML='<p class="msg">'+esc(e.error||'Could not load users.')+'</p>'; });
+  }).catch(function(e){ if($('#adminUserList')) list.innerHTML='<p class="msg">'+esc(e.error||'Could not load users.')+'</p>'; });
 }
 function adminShowUserDocs(userId){
   $('#adminTitle').textContent='Admin \u2014 documents';

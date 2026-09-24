@@ -99,6 +99,7 @@ app.post('/api/login', wrap(async (req, res) => {
   const ok = await bcrypt.compare(password || '', u.password_hash);
   if (!ok) return res.status(401).json({ error: 'Wrong password.' });
   const token = jwt.sign({ uid: u.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  db.touchLastLogin(u.id).catch(e => console.error('Could not record last login for', u.id, e.message));
   res.json({ token, user: publicUser(u) });
 }));
 
@@ -149,10 +150,21 @@ app.get('/api/admin/whoami', auth, wrap(async (req, res) => {
   res.json({ isAdmin: isAdminEmail(u && u.email) });
 }));
 
+app.get('/api/admin/stats', auth, requireAdmin, wrap(async (req, res) => {
+  res.json(await db.adminStats());
+}));
+
 app.get('/api/admin/users', auth, requireAdmin, wrap(async (req, res) => {
-  const users = await db.listUsers();
+  const users = await db.listUsers({ q: req.query.q });
   const byUser = await db.docCountsByUser();
   users.forEach(u => { u.documentCount = byUser[u.id] || 0; });
+
+  const sort = req.query.sort || 'newest';
+  if (sort === 'oldest') users.sort((a, b) => a.created_at - b.created_at);
+  else if (sort === 'most_docs') users.sort((a, b) => b.documentCount - a.documentCount || b.created_at - a.created_at);
+  else if (sort === 'name') users.sort((a, b) => a.name.localeCompare(b.name));
+  else users.sort((a, b) => b.created_at - a.created_at); // newest (default)
+
   res.json({ users });
 }));
 

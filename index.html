@@ -183,6 +183,45 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 .admin-toolbar select{flex:0 0 auto;min-height:40px;width:auto}
 .admin-count{color:var(--muted);font-size:13px;margin:0 0 8px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-weight:600;font-size:15px;z-index:99;max-width:calc(100% - 32px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+
+/* Document Health Dashboard */
+.health{margin:6px 0 18px}
+.health h2{font-size:1.1rem;margin:0 0 10px}
+.health-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media (min-width:520px){.health-grid{grid-template-columns:repeat(4,1fr)}}
+.health-tile{border-radius:14px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+.health-tile b{display:block;font-family:var(--display);font-size:1.7rem;line-height:1.1}
+.health-tile span{font-size:13px;color:var(--muted);font-weight:600}
+.health-tile.green b{color:var(--green)} .health-tile.amber b{color:var(--amber)} .health-tile.red b{color:var(--red)} .health-tile.none b{color:var(--muted)}
+.next-expiry{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.next-expiry .ic{font-size:1.6rem}
+.next-expiry .nm{font-weight:700;font-family:var(--display)}
+.next-expiry .wh{color:var(--muted);font-size:14px}
+
+/* Top-level view switch (Documents / Subscriptions) */
+.viewswitch{display:flex;gap:6px;margin:2px 0 18px}
+.viewswitch button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:700}
+.viewswitch button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* Milestone chips (Smart Reminder System) */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:14px;font-weight:600;cursor:pointer;user-select:none}
+.chip input{margin:0 6px 0 0}
+.chip.on{background:var(--brand);border-color:var(--brand);color:var(--brand-fg)}
+
+/* App Lock PIN screen */
+.pin-dots{display:flex;justify-content:center;gap:14px;margin:24px 0}
+.pin-dots span{width:16px;height:16px;border-radius:50%;border:2px solid var(--muted);display:block}
+.pin-dots span.filled{background:var(--brand);border-color:var(--brand)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:280px;margin:0 auto}
+.pin-pad button{min-height:60px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:1.4rem;font-weight:700}
+.pin-pad button:active{background:var(--line)}
+
+/* Family Vault profiles */
+.profile-list{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px}
+.profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.profile-row .nm{font-weight:700}
+.profile-row .rel{color:var(--muted);font-size:13px}
 @media (prefers-reduced-motion: no-preference){
   dialog[open]{animation:pop .16s ease-out}
   @keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
@@ -241,11 +280,23 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   </div>
 </section>
 
+<section id="pinLock" class="lock" hidden>
+  <div class="lock-card">
+    <h1 class="wordmark">Life<br>Documents</h1>
+    <p class="lede" data-i18n="pin_lede">Enter your PIN to continue.</p>
+    <div class="pin-dots" id="pinDots"></div>
+    <p id="pinMsg" class="msg" role="alert" style="text-align:center"></p>
+    <div class="pin-pad" id="pinPad"></div>
+    <p class="swap"><button id="pinForgot" type="button" data-i18n="pin_use_password">Use your password instead</button></p>
+  </div>
+</section>
+
 <div id="app" hidden>
   <header class="top">
     <span class="brand">Life Documents</span>
     <div class="right">
       <button id="adminBtn" class="btn" type="button" hidden>Admin</button>
+      <button id="familyBtn" class="btn" type="button" data-i18n="family_btn">Family</button>
       <button id="langBtn" class="btn" type="button">বাংলা</button>
       <button id="acctBtn" class="btn" type="button" data-i18n="acct_btn">Account</button>
       <button id="addBtn" class="btn primary" type="button" data-i18n="add_btn">Add document</button>
@@ -253,15 +304,37 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     </div>
   </header>
   <main>
-    <div id="nudge" class="nudge" hidden></div>
-    <section id="hero" class="hero" aria-live="polite"></section>
-    <div id="toolbar" class="bar">
-      <div class="tabs" id="tabs" role="group" aria-label="Filter documents"></div>
-      <input id="q" class="input search" type="search" placeholder="Search documents" aria-label="Search documents" data-i18n-ph="search_placeholder">
+    <div class="viewswitch" id="viewSwitch" role="group" aria-label="Switch view">
+      <button type="button" data-view="docs" aria-pressed="true" data-i18n="view_documents">Documents</button>
+      <button type="button" data-view="subs" aria-pressed="false" data-i18n="view_subscriptions">Subscriptions</button>
     </div>
-    <ul id="list" class="list"></ul>
-    <div id="empty" class="empty" hidden></div>
-    <p class="foot" id="foot"></p>
+
+    <div id="docsView">
+      <div id="nudge" class="nudge" hidden></div>
+      <section class="health" id="healthDash" aria-live="polite"></section>
+      <section id="hero" class="hero" aria-live="polite"></section>
+      <div id="toolbar" class="bar">
+        <div class="tabs" id="tabs" role="group" aria-label="Filter documents"></div>
+        <input id="q" class="input search" type="search" placeholder="Search documents" aria-label="Search documents" data-i18n-ph="search_placeholder">
+      </div>
+      <div class="bar" id="filterBar2">
+        <div class="tabs" id="catTabs" role="group" aria-label="Filter by category"></div>
+        <select id="profileFilter" class="input" style="max-width:200px"></select>
+      </div>
+      <ul id="list" class="list"></ul>
+      <div id="empty" class="empty" hidden></div>
+      <p class="foot" id="foot"></p>
+    </div>
+
+    <div id="subsView" hidden>
+      <section class="health" id="subHealthDash" aria-live="polite"></section>
+      <div class="bar" id="subToolbar">
+        <span></span>
+        <button id="addSubBtn" class="btn primary" type="button" data-i18n="add_sub_btn">Add subscription</button>
+      </div>
+      <ul id="subList" class="list"></ul>
+      <div id="subEmpty" class="empty" hidden></div>
+    </div>
   </main>
 </div>
 
@@ -274,7 +347,11 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <label class="field"><span data-i18n="field_name">Name</span><input id="f-title" class="input" maxlength="80" placeholder="e.g. My passport" data-i18n-ph="field_name_ph"></label>
       </div>
       <div class="g2">
+        <label class="field"><span data-i18n="field_family">Family member</span><select id="f-profile" class="input"></select></label>
         <label class="field"><span data-i18n="field_belongs">Belongs to</span><input id="f-holder" class="input" maxlength="60" placeholder="Me, Shop, Father…" data-i18n-ph="field_belongs_ph"></label>
+      </div>
+      <div class="g2">
+        <label class="field"><span data-i18n="field_category">Category</span><input id="f-category" class="input" list="categoryList" maxlength="40" data-i18n-ph="field_category_ph"><datalist id="categoryList"></datalist></label>
         <label class="field"><span data-i18n="field_docnum">Document number</span><input id="f-number" class="input" maxlength="60" autocomplete="off"></label>
       </div>
       <div class="g2" id="dateRow">
@@ -291,13 +368,20 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         </select>
         <small data-i18n="field_alarm_hint">Sets the countdown color and when the daily reminder email starts.</small>
       </label>
-      <label class="field"><span data-i18n="field_notes">Notes</span><textarea id="f-notes" class="input" maxlength="600" placeholder="Where the original is kept, renewal office, policy contact…" data-i18n-ph="field_notes_ph"></textarea></label>
+      <div class="field" id="milestoneWrap">
+        <span data-i18n="field_reminders">Remind me by email</span>
+        <div class="chips" id="milestoneChips"></div>
+        <small data-i18n="field_reminders_hint">Pick as many as you like — each one emails you once, at that many days before expiry.</small>
+      </div>
+      <label class="field"><span data-i18n="field_notes">Notes</span><textarea id="f-notes" class="input" maxlength="1500" placeholder="Where the original is kept, renewal office, policy contact…" data-i18n-ph="field_notes_ph"></textarea></label>
       <div class="field" id="filesField">
         <span data-i18n="field_file">Photo or PDF scan</span>
         <input id="f-files" type="file" accept="image/*,application/pdf">
         <small data-i18n="field_file_hint">Up to 6 MB.</small>
         <ul id="fileList" class="files" style="margin-top:10px"></ul>
         <div class="preview" id="formFilePreview"></div>
+        <button type="button" class="btn small" id="scanBtn" hidden style="margin-top:10px" data-i18n="scan_btn">Scan &amp; autofill</button>
+        <p id="scanMsg" class="msg" role="alert" style="margin-top:8px"></p>
       </div>
       <p id="formMsg" class="msg" role="alert"></p>
     </div>
@@ -322,10 +406,84 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
       <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
       <p id="acctTrust" class="msg info" hidden></p>
+      <div class="field" id="pinSection">
+        <span data-i18n="applock_title">App Lock (PIN)</span>
+        <p id="pinStatus" class="msg info" style="margin:6px 0"></p>
+        <div id="pinSetup" hidden>
+          <input id="ac-pin1" class="input" style="margin-bottom:8px" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" data-i18n-ph="field_new_pin_ph">
+          <input id="ac-pin2" class="input" style="margin-bottom:8px" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" data-i18n-ph="field_confirm_pin_ph">
+          <input id="ac-pin-pass" class="input" style="margin-bottom:8px" type="password" autocomplete="current-password" data-i18n-ph="field_current_password_ph">
+          <div class="cta">
+            <button type="button" class="btn small primary" id="pinSaveBtn" data-i18n="pin_save_btn">Save PIN</button>
+            <button type="button" class="btn small" id="pinCancelBtn" data-i18n="cancel">Cancel</button>
+          </div>
+          <p id="pinSetupMsg" class="msg" role="alert"></p>
+        </div>
+        <div class="cta" id="pinActions" style="margin-top:8px">
+          <button type="button" class="btn small" id="pinEnableBtn" data-i18n="pin_enable_btn">Turn on PIN lock</button>
+          <button type="button" class="btn small" id="pinChangeBtn" hidden data-i18n="pin_change_btn">Change PIN</button>
+          <button type="button" class="btn small danger" id="pinDisableBtn" hidden data-i18n="pin_disable_btn">Turn off PIN lock</button>
+        </div>
+      </div>
       <p id="acctMsg" class="msg" role="alert"></p>
     </div>
     <div class="df"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
   </form>
+</dialog>
+
+<dialog id="profilesDlg" aria-labelledby="profilesTitle">
+  <div class="dh"><h2 id="profilesTitle" data-i18n="family_title">Family Vault</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="family_lede">Add the people you keep documents for. Everything still lives in your one account — this just helps you group and filter.</p>
+    <ul class="profile-list" id="profileList"></ul>
+    <div class="g2">
+      <label class="field"><span data-i18n="field_family_name">Name</span><input id="pf-name" class="input" maxlength="40"></label>
+      <label class="field"><span data-i18n="field_family_relation">Relation</span><select id="pf-relation" class="input"></select></label>
+    </div>
+    <p id="profileMsg" class="msg" role="alert"></p>
+  </div>
+  <div class="df"><button class="btn primary" type="button" id="pfAddBtn" data-i18n="family_add_btn">Add person</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
+</dialog>
+
+<dialog id="subFormDlg" aria-labelledby="subFormTitle">
+  <div class="dh"><h2 id="subFormTitle">Add subscription</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <form id="subForm">
+    <div class="db">
+      <div class="g2">
+        <label class="field"><span data-i18n="field_category">Category</span><select id="s-category" class="input"></select></label>
+        <label class="field"><span data-i18n="field_name">Name</span><input id="s-name" class="input" maxlength="80" data-i18n-ph="field_sub_name_ph"></label>
+      </div>
+      <div class="g2">
+        <label class="field"><span data-i18n="field_family">Family member</span><select id="s-profile" class="input"></select></label>
+        <label class="field"><span data-i18n="field_amount">Amount</span><input id="s-amount" class="input" maxlength="30" data-i18n-ph="field_amount_ph"></label>
+      </div>
+      <div class="g2">
+        <label class="field"><span data-i18n="field_recurrence">Repeats</span>
+          <select id="s-recurrence" class="input">
+            <option value="monthly" data-i18n="recurrence_monthly">Every month</option>
+            <option value="yearly" data-i18n="recurrence_yearly">Every year</option>
+          </select>
+        </label>
+        <label class="field"><span data-i18n="field_next_due">Next due date</span><input id="s-nextdue" class="input" type="date"></label>
+      </div>
+      <div class="field">
+        <span data-i18n="field_reminders">Remind me by email</span>
+        <div class="chips" id="subMilestoneChips"></div>
+      </div>
+      <label class="field"><span data-i18n="field_notes">Notes</span><textarea id="s-notes" class="input" maxlength="600"></textarea></label>
+      <p id="subFormMsg" class="msg" role="alert"></p>
+    </div>
+    <div class="df">
+      <button class="btn primary" type="submit" id="subSaveBtn" data-i18n="save">Save</button>
+      <button class="btn" type="button" data-close data-i18n="cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="subViewDlg" aria-labelledby="subViewTitle">
+  <div class="dh"><h2 id="subViewTitle"></h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db" id="subViewBody"></div>
+  <div class="df" id="subViewActions"></div>
 </dialog>
 
 <dialog id="adminDlg" aria-labelledby="adminTitle">
@@ -350,24 +508,69 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 'use strict';
 
 var TYPES = {
-  nid:{label:'National ID (NID)',labelBn:'জাতীয় পরিচয়পত্র (NID)',icon:'🪪',lead:30,name:'National ID'},
-  passport:{label:'Passport',labelBn:'পাসপোর্ট',icon:'🛂',lead:90,name:'Passport'},
-  birth:{label:'Birth certificate',labelBn:'জন্ম নিবন্ধন সনদ',icon:'👶',lead:30,name:'Birth certificate'},
-  trade:{label:'Trade licence',labelBn:'ট্রেড লাইসেন্স',icon:'🏪',lead:30,name:'Trade licence',hint:'Usually renews every year — check the renewal month with your City Corporation / Union Parishad office.',hintBn:'সাধারণত প্রতি বছর নবায়ন করতে হয় — সিটি কর্পোরেশন / ইউনিয়ন পরিষদ অফিসে নবায়নের মাস জেনে নিন।'},
-  tin:{label:'TIN certificate',labelBn:'টিআইএন সনদ',icon:'🧮',lead:30,name:'TIN certificate',hint:'Keep the TIN number handy every tax season; note where the certificate is filed.',hintBn:'প্রতি কর মৌসুমে টিআইএন নম্বরটি হাতের কাছে রাখুন; সনদটি কোথায় রাখা আছে তা নোট করুন।'},
-  udc:{label:'Union Digital Centre document',labelBn:'ইউনিয়ন ডিজিটাল সেন্টারের কাগজ',icon:'🏛️',lead:30,name:'UDC document',hint:'e.g. birth/death registration, land records, or another UDC-issued paper — note which service issued it.',hintBn:'যেমন: জন্ম/মৃত্যু নিবন্ধন, জমির রেকর্ড, বা অন্য কোনো UDC-ইস্যুকৃত কাগজ — কোন সেবা থেকে ইস্যু হয়েছে তা নোট করুন।'},
-  insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️',lead:30,name:'Insurance policy'},
-  warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty'},
-  property:{label:'Property document',labelBn:'সম্পত্তির দলিল',icon:'🏠',lead:60,name:'Property document'},
-  certificate:{label:'Certificate',labelBn:'সার্টিফিকেট',icon:'🎓',lead:30,name:'Certificate'},
-  scan:{label:'Photo / Scan',labelBn:'ছবি / স্ক্যান',icon:'🖼️',lead:30,name:'Photo / Scan',noExpiry:true,hint:'For a photo, ID scan, or any keepsake that has no expiry — just store it safely.',hintBn:'এমন একটা ছবি, পরিচয়পত্রের স্ক্যান, বা এমন কিছু যার মেয়াদ শেষ হয় না — শুধু নিরাপদে সংরক্ষণ করুন।'},
-  other:{label:'Other',labelBn:'অন্যান্য',icon:'📄',lead:30,name:'Document'}
+  nid:{label:'National ID (NID)',labelBn:'জাতীয় পরিচয়পত্র (NID)',icon:'🪪',lead:30,name:'National ID',cat:'other'},
+  passport:{label:'Passport',labelBn:'পাসপোর্ট',icon:'🛂',lead:90,name:'Passport',cat:'other'},
+  birth:{label:'Birth certificate',labelBn:'জন্ম নিবন্ধন সনদ',icon:'👶',lead:30,name:'Birth certificate',cat:'other'},
+  vehicle:{label:'Vehicle document',labelBn:'যানবাহনের কাগজ',icon:'🚗',lead:30,name:'Vehicle document',cat:'vehicle',hint:'Registration, fitness certificate, driving licence, or vehicle insurance — note which one this is.',hintBn:'রেজিস্ট্রেশন, ফিটনেস সার্টিফিকেট, ড্রাইভিং লাইসেন্স, বা গাড়ির বিমা — কোনটি তা নোটে লিখে রাখুন।'},
+  trade:{label:'Trade licence',labelBn:'ট্রেড লাইসেন্স',icon:'🏪',lead:30,name:'Trade licence',cat:'other',hint:'Usually renews every year — check the renewal month with your City Corporation / Union Parishad office.',hintBn:'সাধারণত প্রতি বছর নবায়ন করতে হয় — সিটি কর্পোরেশন / ইউনিয়ন পরিষদ অফিসে নবায়নের মাস জেনে নিন।'},
+  tin:{label:'TIN certificate',labelBn:'টিআইএন সনদ',icon:'🧮',lead:30,name:'TIN certificate',cat:'other',hint:'Keep the TIN number handy every tax season; note where the certificate is filed.',hintBn:'প্রতি কর মৌসুমে টিআইএন নম্বরটি হাতের কাছে রাখুন; সনদটি কোথায় রাখা আছে তা নোট করুন।'},
+  udc:{label:'Union Digital Centre document',labelBn:'ইউনিয়ন ডিজিটাল সেন্টারের কাগজ',icon:'🏛️',lead:30,name:'UDC document',cat:'other',hint:'e.g. birth/death registration, land records, or another UDC-issued paper — note which service issued it.',hintBn:'যেমন: জন্ম/মৃত্যু নিবন্ধন, জমির রেকর্ড, বা অন্য কোনো UDC-ইস্যুকৃত কাগজ — কোন সেবা থেকে ইস্যু হয়েছে তা নোট করুন।'},
+  insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️',lead:30,name:'Insurance policy',cat:'other'},
+  warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty',cat:'other'},
+  property:{label:'Property document',labelBn:'সম্পত্তির দলিল',icon:'🏠',lead:60,name:'Property document',cat:'property'},
+  certificate:{label:'Certificate',labelBn:'সার্টিফিকেট',icon:'🎓',lead:30,name:'Certificate',cat:'education'},
+  scan:{label:'Photo / Scan',labelBn:'ছবি / স্ক্যান',icon:'🖼️',lead:30,name:'Photo / Scan',cat:'other',noExpiry:true,hint:'For a photo, ID scan, or any keepsake that has no expiry — just store it safely.',hintBn:'এমন একটা ছবি, পরিচয়পত্রের স্ক্যান, বা এমন কিছু যার মেয়াদ শেষ হয় না — শুধু নিরাপদে সংরক্ষণ করুন।'},
+  other:{label:'Other',labelBn:'অন্যান্য',icon:'📄',lead:30,name:'Document',cat:'other'}
 };
 function typeLabel(T){ return (LANG==='bn' && T.labelBn) ? T.labelBn : T.label; }
 function typeHint(T){ return (LANG==='bn' && T.hintBn) ? T.hintBn : T.hint; }
 // The "usual" set nudged by the vault-completeness banner below.
 var COMMON_TYPES = ['nid','passport','trade','tin','udc','insurance','property','certificate'];
 var URGENT_DAYS = 14;
+
+/* ---------------- Automatic Categories ---------------- */
+// Fixed top-line categories plus whatever the user types themselves — the
+// category field is free text, this is just the suggested/default set.
+var CATEGORIES = {
+  vehicle:{label:'Vehicle',labelBn:'যানবাহন',icon:'🚗'},
+  education:{label:'Education',labelBn:'শিক্ষা',icon:'🎓'},
+  property:{label:'Property',labelBn:'সম্পত্তি',icon:'🏠'},
+  other:{label:'Other',labelBn:'অন্যান্য',icon:'📄'}
+};
+function categoryLabel(key){
+  var c=CATEGORIES[String(key||'').toLowerCase()];
+  if(c)return LANG==='bn'?c.labelBn:c.label;
+  return key||'';
+}
+function docCategory(d){ return d.category || (TYPES[d.type]||TYPES.other).cat || 'other'; }
+
+/* ---------------- Family Vault ---------------- */
+var PROFILE_RELATIONS = {
+  self:{label:'Me',labelBn:'আমি'},
+  spouse:{label:'Wife / Husband',labelBn:'স্ত্রী / স্বামী'},
+  child:{label:'Child',labelBn:'সন্তান'},
+  parent:{label:'Parent',labelBn:'বাবা-মা'},
+  other:{label:'Other dependent',labelBn:'অন্য নির্ভরশীল'}
+};
+function relationLabel(key){
+  var r=PROFILE_RELATIONS[key]||PROFILE_RELATIONS.other;
+  return LANG==='bn'?r.labelBn:r.label;
+}
+var profiles=[];
+
+/* ---------------- Subscription & Payment Reminder ---------------- */
+var SUB_CATEGORIES = {
+  insurance:{label:'Insurance premium',labelBn:'বিমার প্রিমিয়াম',icon:'🛡️',recurrence:'yearly'},
+  internet:{label:'Internet',labelBn:'ইন্টারনেট',icon:'🌐',recurrence:'monthly'},
+  mobile:{label:'Mobile plan',labelBn:'মোবাইল প্ল্যান',icon:'📱',recurrence:'monthly'},
+  streaming:{label:'Netflix / streaming',labelBn:'নেটফ্লিক্স / স্ট্রিমিং',icon:'🎬',recurrence:'monthly'},
+  domain:{label:'Domain',labelBn:'ডোমেইন',icon:'🌍',recurrence:'yearly'},
+  software:{label:'Software license',labelBn:'সফটওয়্যার লাইসেন্স',icon:'💻',recurrence:'yearly'},
+  loan:{label:'Loan installment',labelBn:'ঋণের কিস্তি',icon:'🏦',recurrence:'monthly'},
+  card:{label:'Credit card annual fee',labelBn:'ক্রেডিট কার্ড বার্ষিক ফি',icon:'💳',recurrence:'yearly'},
+  other:{label:'Other',labelBn:'অন্যান্য',icon:'🔁',recurrence:'monthly'}
+};
+function subCategoryLabel(T){ return LANG==='bn'?T.labelBn:T.label; }
 var $ = function(s){return document.querySelector(s);};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function plural(n,w){return n+' '+w+(n===1?'':'s');}
@@ -449,7 +652,32 @@ var STR = {
     err_could_not_save:'Could not save.', err_give_name:'Give the document a name.',
     err_expiry_before_issue:'The expiry date is before the issue date.', err_could_not_delete:'Could not delete.',
     err_could_not_load_docs:'Could not load your documents.', err_file_too_large:'That file is larger than 6 MB.',
-    err_could_not_open_file:'Could not open this file', copy_blocked:'Copy is blocked here. Tap Show and copy by hand.'
+    err_could_not_open_file:'Could not open this file', copy_blocked:'Copy is blocked here. Tap Show and copy by hand.',
+    scan_btn:'Scan & autofill', scanning:'Scanning…', scanned_details_label:'Scanned details',
+    scan_toast:'Filled in from the photo — please check it over', err_scan_could_not_read:'Could not read the details from that photo. You can still fill it in by hand.',
+    health_title:'My Documents', health_active:'Active', health_soon:'Expiring soon', health_expired:'Expired', health_none:'No expiry',
+    health_next_expiry:'Next up:', cat_all:'All', dt_category:'Category', dt_family:'Family member', dt_reminders:'Email reminders',
+    field_category:'Category', field_category_ph:'Vehicle, Education, Property…',
+    field_reminders:'Remind me by email', field_reminders_hint:'Pick as many as you like — each one emails you once, at that many days before expiry.',
+    milestone_due_today:'On the due date',
+    family_btn:'Family', family_title:'Family Vault', family_lede:'Add the people you keep documents for. Everything still lives in your one account — this just helps you group and filter.',
+    family_empty:'No one added yet.', family_add_btn:'Add person', field_family:'Family member', field_family_name:'Name', field_family_relation:'Relation',
+    profile_filter_all:'Everyone', profile_none:'No one in particular', toast_family_added:'Added',
+    applock_title:'App Lock (PIN)', pin_lede:'Enter your PIN to continue.', pin_use_password:'Use your password instead',
+    pin_status_on:'PIN lock is on.', pin_status_off:'PIN lock is off.', pin_enable_btn:'Turn on PIN lock', pin_change_btn:'Change PIN', pin_disable_btn:'Turn off PIN lock',
+    pin_save_btn:'Save PIN', field_new_pin_ph:'New PIN', field_confirm_pin_ph:'Confirm PIN', field_current_password_ph:'Your account password',
+    err_pin_format:'Use a PIN of 4 to 8 digits.', err_pin_match:'The two PINs do not match.', err_current_password_required:'Enter your account password to confirm.',
+    pin_too_short:'Enter your PIN.', pin_wrong:'Wrong PIN.', pin_too_many_tries:'Too many wrong tries. Sign in with your password.',
+    toast_pin_saved:'PIN saved', toast_pin_off:'PIN lock turned off',
+    view_documents:'Documents', view_subscriptions:'Subscriptions', add_sub_btn:'Add subscription',
+    field_amount:'Amount', field_amount_ph:'e.g. ৳500', field_recurrence:'Repeats', field_next_due:'Next due date', field_sub_name_ph:'e.g. Netflix',
+    recurrence_monthly:'Every month', recurrence_yearly:'Every year',
+    sub_health_title:'Subscriptions', sub_health_overdue:'Overdue', sub_health_soon:'Due soon', sub_health_upcoming:'Upcoming',
+    sub_empty_h2:'No subscriptions yet', sub_empty_p:'Insurance premium, internet, mobile plan, Netflix, domain, software license, loan installment, credit card fee — add one and get an email reminder before it is due.', sub_empty_cta:'Add your first subscription',
+    sub_form_title_add:'Add subscription', sub_form_title_edit:'Edit subscription', sub_no_due_date:'No due date set',
+    sub_last_paid:'Last paid', sub_mark_paid:'Mark as paid', sub_renewed_toast:'Marked as paid — next due date updated',
+    toast_sub_saved:'Subscription saved', err_could_not_load_subs:'Could not load your subscriptions.',
+    btn_download:'Download', btn_share:'Share', toast_copied_summary:'Summary copied'
   },
   bn: {
     si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
@@ -507,7 +735,32 @@ var STR = {
     err_could_not_save:'সংরক্ষণ করা যায়নি।', err_give_name:'ডকুমেন্টের একটি নাম দিন।',
     err_expiry_before_issue:'মেয়াদ শেষের তারিখ ইস্যুর তারিখের আগে।', err_could_not_delete:'মুছে ফেলা যায়নি।',
     err_could_not_load_docs:'আপনার ডকুমেন্ট লোড করা যায়নি।', err_file_too_large:'ফাইলটি 6 MB এর চেয়ে বড়।',
-    err_could_not_open_file:'এই ফাইলটি খোলা যায়নি', copy_blocked:'এখানে কপি করা যাচ্ছে না। ‘দেখান’ চেপে হাতে কপি করুন।'
+    err_could_not_open_file:'এই ফাইলটি খোলা যায়নি', copy_blocked:'এখানে কপি করা যাচ্ছে না। ‘দেখান’ চেপে হাতে কপি করুন।',
+    scan_btn:'স্ক্যান করে অটো-ফিল করুন', scanning:'স্ক্যান করা হচ্ছে…', scanned_details_label:'স্ক্যান করা তথ্য',
+    scan_toast:'ছবি থেকে তথ্য ভরে দেওয়া হয়েছে — দয়া করে যাচাই করে নিন', err_scan_could_not_read:'ছবি থেকে তথ্য পড়া যায়নি। আপনি নিজে হাতে লিখে দিতে পারেন।',
+    health_title:'আমার ডকুমেন্ট', health_active:'সচল', health_soon:'শীঘ্রই মেয়াদ শেষ', health_expired:'মেয়াদোত্তীর্ণ', health_none:'মেয়াদ নেই',
+    health_next_expiry:'পরবর্তী:', cat_all:'সব', dt_category:'ক্যাটাগরি', dt_family:'পরিবারের সদস্য', dt_reminders:'ইমেইল রিমাইন্ডার',
+    field_category:'ক্যাটাগরি', field_category_ph:'যানবাহন, শিক্ষা, সম্পত্তি…',
+    field_reminders:'ইমেইলে মনে করিয়ে দিন', field_reminders_hint:'যতগুলো চান বেছে নিন — প্রতিটি মেয়াদ শেষের ওই কয়েক দিন আগে একবার ইমেইল করবে।',
+    milestone_due_today:'পরিশোধের দিনে',
+    family_btn:'পরিবার', family_title:'ফ্যামিলি ভল্ট', family_lede:'যাদের ডকুমেন্ট আপনি রাখছেন তাদের যোগ করুন। সবকিছু আপনার একই অ্যাকাউন্টে থাকবে — এটা শুধু গ্রুপ করতে ও ফিল্টার করতে সাহায্য করে।',
+    family_empty:'এখনো কেউ যোগ করা হয়নি।', family_add_btn:'ব্যক্তি যোগ করুন', field_family:'পরিবারের সদস্য', field_family_name:'নাম', field_family_relation:'সম্পর্ক',
+    profile_filter_all:'সবাই', profile_none:'নির্দিষ্ট কেউ না', toast_family_added:'যোগ করা হয়েছে',
+    applock_title:'অ্যাপ লক (পিন)', pin_lede:'চালিয়ে যেতে আপনার পিন লিখুন।', pin_use_password:'পাসওয়ার্ড দিয়ে ঢুকুন',
+    pin_status_on:'পিন লক চালু আছে।', pin_status_off:'পিন লক বন্ধ আছে।', pin_enable_btn:'পিন লক চালু করুন', pin_change_btn:'পিন পরিবর্তন করুন', pin_disable_btn:'পিন লক বন্ধ করুন',
+    pin_save_btn:'পিন সংরক্ষণ করুন', field_new_pin_ph:'নতুন পিন', field_confirm_pin_ph:'পিন নিশ্চিত করুন', field_current_password_ph:'আপনার অ্যাকাউন্ট পাসওয়ার্ড',
+    err_pin_format:'৪ থেকে ৮ সংখ্যার একটি পিন ব্যবহার করুন।', err_pin_match:'দুটি পিন মিলছে না।', err_current_password_required:'নিশ্চিত করতে আপনার অ্যাকাউন্ট পাসওয়ার্ড লিখুন।',
+    pin_too_short:'আপনার পিন লিখুন।', pin_wrong:'ভুল পিন।', pin_too_many_tries:'অনেকবার ভুল হয়েছে। পাসওয়ার্ড দিয়ে সাইন ইন করুন।',
+    toast_pin_saved:'পিন সংরক্ষিত হয়েছে', toast_pin_off:'পিন লক বন্ধ হয়েছে',
+    view_documents:'ডকুমেন্ট', view_subscriptions:'সাবস্ক্রিপশন', add_sub_btn:'সাবস্ক্রিপশন যোগ করুন',
+    field_amount:'পরিমাণ', field_amount_ph:'যেমন: ৳৫০০', field_recurrence:'পুনরাবৃত্তি', field_next_due:'পরবর্তী পরিশোধের তারিখ', field_sub_name_ph:'যেমন: নেটফ্লিক্স',
+    recurrence_monthly:'প্রতি মাসে', recurrence_yearly:'প্রতি বছর',
+    sub_health_title:'সাবস্ক্রিপশন', sub_health_overdue:'বকেয়া', sub_health_soon:'শীঘ্রই পরিশোধ', sub_health_upcoming:'আসন্ন',
+    sub_empty_h2:'এখনো কোনো সাবস্ক্রিপশন নেই', sub_empty_p:'বিমার প্রিমিয়াম, ইন্টারনেট, মোবাইল প্ল্যান, নেটফ্লিক্স, ডোমেইন, সফটওয়্যার লাইসেন্স, ঋণের কিস্তি, ক্রেডিট কার্ড ফি — একটা যোগ করুন, পরিশোধের আগে ইমেইল রিমাইন্ডার পাবেন।', sub_empty_cta:'আপনার প্রথম সাবস্ক্রিপশন যোগ করুন',
+    sub_form_title_add:'সাবস্ক্রিপশন যোগ করুন', sub_form_title_edit:'সাবস্ক্রিপশন সম্পাদনা করুন', sub_no_due_date:'কোনো তারিখ নির্ধারণ করা নেই',
+    sub_last_paid:'সর্বশেষ পরিশোধ', sub_mark_paid:'পরিশোধ হয়েছে বলে চিহ্নিত করুন', sub_renewed_toast:'পরিশোধ হয়েছে হিসেবে চিহ্নিত হয়েছে — পরবর্তী তারিখ আপডেট হয়েছে',
+    toast_sub_saved:'সাবস্ক্রিপশন সংরক্ষিত হয়েছে', err_could_not_load_subs:'আপনার সাবস্ক্রিপশন লোড করা যায়নি।',
+    btn_download:'ডাউনলোড করুন', btn_share:'শেয়ার করুন', toast_copied_summary:'সারাংশ কপি হয়েছে'
   }
 };
 var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
@@ -559,6 +812,8 @@ function api(path, opts){
 
 /* ---------------- state ---------------- */
 var user=null, docs=[], filter='all', query='', isAdmin=false, nudgeDismissed=false;
+var catFilter='all', profileFilterVal='';
+var subs=[];
 
 /* ---------------- backend-url dialog ---------------- */
 $('#backendLinkBtn').addEventListener('click', function(){
@@ -588,9 +843,9 @@ $('#forgotBtn').addEventListener('click',function(){showPanel('panelForgot');});
 $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
-  user=null;docs=[];isAdmin=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
-  $('#app').hidden=true;$('#lock').hidden=false;
+  user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
+  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
   else { showPanel('panelSignIn'); if(msg){$('#siMsg').className='msg info';$('#siMsg').textContent=msg;} }
@@ -604,7 +859,7 @@ $('#siGo').addEventListener('click',function(){
   if(!email||!pass){m.textContent=t('err_enter_email_pass');return;}
   btn.disabled=true;btn.textContent=t('signing_in');
   api('/api/login',{method:'POST',body:JSON.stringify({email:email,password:pass})}).then(function(data){
-    TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;enterApp();
+    TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;pinUnlockedThisLoad=true;enterApp();
   }).catch(function(e){m.textContent=e.error||t('err_could_not_sign_in');}).then(function(){btn.disabled=false;btn.textContent=t('si_go');});
 });
 $('#si-pass').addEventListener('keydown',function(e){if(e.key==='Enter')$('#siGo').click();});
@@ -620,7 +875,7 @@ $('#suGo').addEventListener('click',function(){
   if(p1!==p2){m.textContent=t('err_pass_match');return;}
   btn.disabled=true;btn.textContent=t('creating');
   api('/api/signup',{method:'POST',body:JSON.stringify({name:name,email:email,phone:phone,password:p1})}).then(function(data){
-    TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;enterApp();
+    TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;pinUnlockedThisLoad=true;enterApp();
   }).catch(function(e){m.textContent=e.error||t('err_could_not_create');}).then(function(){btn.disabled=false;btn.textContent=t('su_go');});
 });
 
@@ -649,11 +904,84 @@ $('#lockBtn').addEventListener('click',function(){
   TOKEN=null;localStorage.removeItem('ld_token');showLock();
 });
 
+/* ---------------- App Lock (PIN) ---------------- */
+// A quick re-entry lock on top of the normal sign-in, for someone who's
+// already signed in on a device (see the "App Lock" section in Account).
+// pinUnlockedThisLoad resets on every fresh page load/token-restore, so a
+// PIN-enabled account is asked again each time the app is (re)opened, and
+// again after being backgrounded for a while (see the visibilitychange
+// handler below) — but never right after typing the full account password.
+var pinUnlockedThisLoad=false, pinEntry='', pinAttempts=0, lastHiddenAt=null;
+function afterAuth(){
+  if(user && user.pinEnabled && !pinUnlockedThisLoad){ showPinLock(); }
+  else { enterApp(); }
+}
+function showPinLock(){
+  $('#lock').hidden=true;$('#app').hidden=true;$('#pinLock').hidden=false;
+  pinEntry='';renderPinDots();$('#pinMsg').textContent='';
+  applyStaticI18n();
+}
+function renderPinDots(){
+  var n=pinEntry.length,count=n||4,html='';
+  for(var i=0;i<count;i++){ html+='<span class="'+(i<n?'filled':'')+'"></span>'; }
+  $('#pinDots').innerHTML=html;
+}
+(function renderPinPad(){
+  var keys=['1','2','3','4','5','6','7','8','9','⌫','0','✓'];
+  $('#pinPad').innerHTML=keys.map(function(k){return '<button type="button" data-k="'+k+'">'+k+'</button>';}).join('');
+})();
+$('#pinPad').addEventListener('click',function(e){
+  var b=e.target.closest('[data-k]');if(!b)return;
+  var k=b.dataset.k;
+  if(k==='⌫'){ pinEntry=pinEntry.slice(0,-1); }
+  else if(k==='✓'){ submitPin(); return; }
+  else if(pinEntry.length<8){ pinEntry+=k; }
+  renderPinDots();
+});
+document.addEventListener('keydown',function(e){
+  if($('#pinLock').hidden)return;
+  if(/^[0-9]$/.test(e.key)&&pinEntry.length<8){pinEntry+=e.key;renderPinDots();}
+  else if(e.key==='Backspace'){pinEntry=pinEntry.slice(0,-1);renderPinDots();}
+  else if(e.key==='Enter'){submitPin();}
+});
+function submitPin(){
+  if(pinEntry.length<4){$('#pinMsg').textContent=t('pin_too_short');return;}
+  api('/api/me/pin/verify',{method:'POST',body:JSON.stringify({pin:pinEntry})}).then(function(res){
+    if(res.ok){
+      pinUnlockedThisLoad=true;pinAttempts=0;
+      $('#pinLock').hidden=true;enterApp();
+    } else {
+      pinAttempts++;pinEntry='';renderPinDots();
+      $('#pinMsg').textContent=t('pin_wrong');
+      if(pinAttempts>=5){
+        pinAttempts=0;TOKEN=null;localStorage.removeItem('ld_token');
+        $('#pinLock').hidden=true;showLock(t('pin_too_many_tries'));
+      }
+    }
+  }).catch(function(){$('#pinMsg').textContent=t('err_could_not_sign_in');});
+}
+$('#pinForgot').addEventListener('click',function(){
+  TOKEN=null;localStorage.removeItem('ld_token');
+  $('#pinLock').hidden=true;showLock();
+});
+// If the app was backgrounded for a while, ask for the PIN again on return
+// — the whole point of App Lock is a device someone else picked up.
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){ lastHiddenAt=Date.now(); }
+  else {
+    if(lastHiddenAt && user && user.pinEnabled && !$('#app').hidden){
+      if(Date.now()-lastHiddenAt > 2*60*1000){ pinUnlockedThisLoad=false; showPinLock(); }
+    }
+    lastHiddenAt=null;
+  }
+});
+
 /* ---------------- app shell ---------------- */
 function enterApp(){
-  $('#lock').hidden=true;$('#app').hidden=false;
-  filter='all';query='';$('#q').value='';
+  $('#lock').hidden=true;$('#pinLock').hidden=true;$('#app').hidden=false;
+  filter='all';query='';catFilter='all';profileFilterVal='';$('#q').value='';
   loadDocs();
+  loadProfiles();
   api('/api/admin/whoami').then(function(data){
     isAdmin=!!data.isAdmin;
     $('#adminBtn').hidden=!isAdmin;
@@ -765,10 +1093,76 @@ function adminShowUserDocs(userId){
 function loadDocs(){
   api('/api/documents').then(function(data){
     docs=data.docs||[];
-    docs.forEach(function(d){ d.lead=Number(d.lead)||30; });
+    docs.forEach(function(d){ d.lead=Number(d.lead)||30; if(!Array.isArray(d.reminder_days))d.reminder_days=[]; });
     render();
   }).catch(function(e){toast(e.error||t('err_could_not_load_docs'));});
 }
+
+/* ---------------- Family Vault (profiles) ---------------- */
+function loadProfiles(){
+  return api('/api/profiles').then(function(data){
+    profiles=data.profiles||[];
+    renderProfileFilter();
+    renderProfileSelect($('#f-profile'));
+    renderProfileSelect($('#s-profile'));
+  }).catch(function(){ profiles=[]; });
+}
+function renderProfileSelect(sel){
+  if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">'+t('profile_none')+'</option>'+profiles.map(function(p){
+    return '<option value="'+esc(p.id)+'">'+esc(p.name)+' ('+esc(relationLabel(p.relation))+')</option>';
+  }).join('');
+  sel.value=cur;
+}
+function renderProfileFilter(){
+  var sel=$('#profileFilter');if(!sel)return;
+  sel.innerHTML='<option value="">'+t('profile_filter_all')+'</option>'+profiles.map(function(p){
+    return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';
+  }).join('');
+  sel.value=profileFilterVal;
+}
+function renderProfileRelationOptions(){
+  $('#pf-relation').innerHTML=Object.keys(PROFILE_RELATIONS).map(function(k){return '<option value="'+k+'">'+esc(relationLabel(k))+'</option>';}).join('');
+}
+function renderProfileList(){
+  var ul=$('#profileList');
+  if(!profiles.length){ul.innerHTML='<li class="msg info" style="border:0;padding:0">'+t('family_empty')+'</li>';return;}
+  ul.innerHTML=profiles.map(function(p){
+    return '<li class="profile-row"><span><span class="nm">'+esc(p.name)+'</span><br><span class="rel">'+esc(relationLabel(p.relation))+'</span></span>'+
+      '<button type="button" class="btn small danger" data-del-profile="'+esc(p.id)+'">'+t('remove')+'</button></li>';
+  }).join('');
+  ul.querySelectorAll('[data-del-profile]').forEach(function(b){
+    b.addEventListener('click',function(){
+      if(b.dataset.armed==='1'){
+        api('/api/profiles/'+b.dataset.delProfile,{method:'DELETE'}).then(function(){
+          toast(t('toast_deleted'));loadProfiles().then(function(){renderProfileList();render();});
+        }).catch(function(e){toast(e.error||t('err_could_not_delete'));});
+      } else {
+        b.dataset.armed='1';b.textContent=t('btn_delete_confirm');b.classList.add('armed');
+      }
+    });
+  });
+}
+$('#familyBtn').addEventListener('click',function(){
+  renderProfileRelationOptions();
+  $('#pf-name').value='';$('#profileMsg').textContent='';
+  renderProfileList();
+  $('#profilesDlg').showModal();
+});
+$('#pfAddBtn').addEventListener('click',function(){
+  var name=$('#pf-name').value.trim(),relation=$('#pf-relation').value,msg=$('#profileMsg');
+  if(!name){msg.textContent=t('err_enter_name');return;}
+  api('/api/profiles',{method:'POST',body:JSON.stringify({name:name,relation:relation})}).then(function(){
+    $('#pf-name').value='';msg.textContent='';
+    loadProfiles().then(function(){renderProfileList();render();});
+    toast(t('toast_family_added'));
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');});
+});
+$('#f-profile').addEventListener('change',function(){
+  var p=profiles.filter(function(x){return x.id===this.value;},this)[0];
+  if(p){ $('#f-holder').value=p.name; }
+});
 
 /* ---------------- account ---------------- */
 function lastSignInText(){
@@ -781,6 +1175,7 @@ $('#acctBtn').addEventListener('click',function(){
   $('#acctMsg').textContent='';
   var trust=$('#acctTrust'),txt=lastSignInText();
   trust.hidden=!txt;trust.textContent=txt||'';
+  refreshPinUI();
   $('#acctDlg').showModal();
 });
 $('#acctForm').addEventListener('submit',function(e){
@@ -791,6 +1186,50 @@ $('#acctForm').addEventListener('submit',function(e){
     user.name=payload.name;user.email=payload.email;user.phone=payload.phone;
     $('#acctDlg').close();toast(t('toast_account_updated'));
   }).catch(function(e){m.textContent=e.error||t('err_could_not_save');});
+});
+
+/* ---------------- App Lock management (Account dialog) ---------------- */
+var pinMode='enable';
+function refreshPinUI(){
+  var enabled=!!(user&&user.pinEnabled);
+  $('#pinStatus').textContent = enabled ? t('pin_status_on') : t('pin_status_off');
+  $('#pinEnableBtn').hidden=enabled;
+  $('#pinChangeBtn').hidden=!enabled;
+  $('#pinDisableBtn').hidden=!enabled;
+  $('#pinSetup').hidden=true;
+  $('#ac-pin1').value='';$('#ac-pin2').value='';$('#ac-pin-pass').value='';
+  $('#pinSetupMsg').textContent='';
+}
+function openPinSetup(mode){
+  pinMode=mode;
+  $('#pinSetup').hidden=false;
+  $('#ac-pin1').hidden = mode==='disable';
+  $('#ac-pin2').hidden = mode==='disable';
+  $('#ac-pin1').value='';$('#ac-pin2').value='';$('#ac-pin-pass').value='';
+  $('#pinSetupMsg').textContent='';
+  $('#pinSaveBtn').textContent = mode==='disable' ? t('pin_disable_btn') : t('pin_save_btn');
+}
+$('#pinEnableBtn').addEventListener('click',function(){openPinSetup('enable');});
+$('#pinChangeBtn').addEventListener('click',function(){openPinSetup('change');});
+$('#pinDisableBtn').addEventListener('click',function(){openPinSetup('disable');});
+$('#pinCancelBtn').addEventListener('click',function(){$('#pinSetup').hidden=true;});
+$('#pinSaveBtn').addEventListener('click',function(){
+  var msg=$('#pinSetupMsg'),pass=$('#ac-pin-pass').value,btn=this;
+  if(!pass){msg.textContent=t('err_current_password_required');return;}
+  var req;
+  if(pinMode==='disable'){
+    req=api('/api/me/pin',{method:'DELETE',body:JSON.stringify({currentPassword:pass})}).then(function(){user.pinEnabled=false;});
+  } else {
+    var p1=$('#ac-pin1').value,p2=$('#ac-pin2').value;
+    if(!/^\d{4,8}$/.test(p1)){msg.textContent=t('err_pin_format');return;}
+    if(p1!==p2){msg.textContent=t('err_pin_match');return;}
+    req=api('/api/me/pin',{method:'PUT',body:JSON.stringify({pin:p1,currentPassword:pass})}).then(function(){user.pinEnabled=true;});
+  }
+  btn.disabled=true;
+  req.then(function(){
+    refreshPinUI();
+    toast(pinMode==='disable'?t('toast_pin_off'):t('toast_pin_saved'));
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){btn.disabled=false;});
 });
 
 /* ---------------- main list / hero ---------------- */
@@ -895,7 +1334,10 @@ function renderNudge(){
 function render(){
   applyStaticI18n();
   renderNudge();
+  renderHealthDash();
   renderHero();
+  renderCategoryList();
+  renderProfileFilter();
   var counts={all:docs.length,soon:docs.filter(needsAttention).length,none:docs.filter(function(d){return !d.expiry;}).length};
   var tabs=[['all',t('tab_all')],['soon',t('tab_soon')],['none',t('tab_none')]];
   $('#tabs').innerHTML=tabs.map(function(tb){
@@ -903,10 +1345,22 @@ function render(){
   }).join('');
   $('#toolbar').hidden=!docs.length;
 
+  var catCounts={};
+  docs.forEach(function(d){var c=docCategory(d);catCounts[c]=(catCounts[c]||0)+1;});
+  var catKeys=Object.keys(catCounts);
+  $('#filterBar2').hidden=!docs.length;
+  $('#catTabs').innerHTML = !catKeys.length ? '' : ['all'].concat(catKeys).map(function(c){
+    var label=c==='all'?t('cat_all'):categoryLabel(c);
+    var n=c==='all'?docs.length:catCounts[c];
+    return '<button type="button" class="tab" data-cat="'+esc(c)+'" aria-pressed="'+(catFilter===c)+'">'+esc(label)+'<span class="n">'+n+'</span></button>';
+  }).join('');
+
   var q=query.trim().toLowerCase();
   var list=sortedDocs(docs).filter(function(d){
     if(filter==='soon'&&!needsAttention(d))return false;
     if(filter==='none'&&d.expiry)return false;
+    if(catFilter!=='all'&&docCategory(d)!==catFilter)return false;
+    if(profileFilterVal&&d.profile_id!==profileFilterVal)return false;
     if(q){var Td=TYPES[d.type]||TYPES.other;var hay=(d.title+' '+d.holder+' '+Td.label+' '+(Td.labelBn||'')+' '+(d.notes||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
   });
@@ -936,11 +1390,55 @@ function render(){
 }
 
 $('#tabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(!b)return;filter=b.dataset.tab;render();});
+$('#catTabs').addEventListener('click',function(e){var b=e.target.closest('[data-cat]');if(!b)return;catFilter=b.dataset.cat;render();});
+$('#profileFilter').addEventListener('change',function(){profileFilterVal=this.value;render();});
 $('#q').addEventListener('input',function(){query=this.value;render();});
+function renderCategoryList(){
+  var known={};
+  Object.keys(CATEGORIES).forEach(function(k){known[categoryLabel(k)]=true;});
+  docs.forEach(function(d){if(d.category)known[d.category]=true;});
+  var dl=$('#categoryList');if(dl)dl.innerHTML=Object.keys(known).map(function(k){return '<option value="'+esc(k)+'">';}).join('');
+}
+
+/* ---------------- Document Health Dashboard ---------------- */
+function renderHealthDash(){
+  var el=$('#healthDash');
+  if(!docs.length){el.innerHTML='';return;}
+  var active=0,soon=0,expired=0,none=0;
+  docs.forEach(function(d){
+    var n=daysLeft(d);
+    if(n===null){none++;return;}
+    if(n<0){expired++;return;}
+    if(n<=(d.lead||30)){soon++;return;}
+    active++;
+  });
+  var tiles=[['green',active,t('health_active')],['amber',soon,t('health_soon')],['red',expired,t('health_expired')],['none',none,t('health_none')]];
+  var html='<h2>'+t('health_title')+'</h2><div class="health-grid">'+tiles.map(function(x){
+    return '<div class="health-tile '+x[0]+'"><b>'+x[1]+'</b><span>'+x[2]+'</span></div>';
+  }).join('')+'</div>';
+  var upcoming=sortedDocs(docs).filter(function(d){var n=daysLeft(d);return n!==null&&n>=0;})[0];
+  if(upcoming){
+    var T=TYPES[upcoming.type]||TYPES.other;
+    html+='<button type="button" class="next-expiry" data-open="'+esc(upcoming.id)+'"><span class="ic">'+T.icon+'</span><span><span class="nm">'+esc(upcoming.title)+'</span><br><span class="wh">'+t('health_next_expiry')+' '+esc(whenText(daysLeft(upcoming)))+'</span></span></button>';
+  }
+  el.innerHTML=html;
+}
+$('#healthDash').addEventListener('click',function(e){var b=e.target.closest('[data-open]');if(b)openDetail(b.dataset.open);});
 $('#hero').addEventListener('click',function(e){var b=e.target.closest('[data-open]');if(b)openDetail(b.dataset.open);});
 $('#list').addEventListener('click',function(e){var b=e.target.closest('[data-open]');if(b)openDetail(b.dataset.open);});
 $('#empty').addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(b&&b.dataset.act==='add')openForm();});
 $('#addBtn').addEventListener('click',function(){openForm();});
+
+/* ---------------- Documents / Subscriptions view switch ---------------- */
+$('#viewSwitch').addEventListener('click',function(e){
+  var b=e.target.closest('[data-view]');if(!b)return;
+  $('#viewSwitch').querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  var view=b.dataset.view;
+  $('#docsView').hidden=view!=='docs';
+  $('#subsView').hidden=view!=='subs';
+  $('#addBtn').hidden=view!=='docs';
+  if(view==='subs'){ loadSubs(); }
+});
 
 /* ---------------- detail dialog ---------------- */
 function mask(n){if(!n)return '';var s=String(n);return s.length<=4?'•'.repeat(s.length):'•'.repeat(Math.min(s.length-4,10))+s.slice(-4);}
@@ -955,12 +1453,20 @@ function openDetail(id){
   else status=LANG==='bn'?(n+' দিন বাকি'):(plural(n,'day')+' left');
   var html='<span class="status-line '+tn+'">'+esc(status)+'</span><dl class="facts">';
   html+='<div><dt>'+t('dt_type')+'</dt><dd>'+esc(typeLabel(T))+'</dd></div>';
+  html+='<div><dt>'+t('dt_category')+'</dt><dd>'+esc(categoryLabel(docCategory(d)))+'</dd></div>';
+  var prof=d.profile_id?profiles.filter(function(p){return p.id===d.profile_id;})[0]:null;
+  if(prof)html+='<div><dt>'+t('dt_family')+'</dt><dd>'+esc(prof.name)+' ('+esc(relationLabel(prof.relation))+')</dd></div>';
   if(d.holder)html+='<div><dt>'+t('dt_belongs')+'</dt><dd>'+esc(d.holder)+'</dd></div>';
   if(d.number)html+='<div><dt>'+t('dt_number')+'</dt><dd class="numrow"><code id="numTxt">'+esc(mask(d.number))+'</code><button class="btn small" type="button" id="revealBtn">'+t('btn_show')+'</button><button class="btn small" type="button" id="copyBtn">'+t('btn_copy')+'</button></dd></div>';
   if(d.issue)html+='<div><dt>'+t('dt_issued')+'</dt><dd>'+esc(fmt(d.issue))+'</dd></div>';
   if(d.expiry){
     var alarmNote=LANG==='bn'?('(মেয়াদের '+(d.lead||30)+' দিন আগে অ্যালার্ম)'):('(alarm '+plural(d.lead||30,'day')+' before)');
     html+='<div><dt>'+t('dt_expires')+'</dt><dd>'+esc(fmt(d.expiry))+' '+alarmNote+'</dd></div>';
+    var ms=(d.reminder_days&&d.reminder_days.length)?d.reminder_days.slice().sort(function(a,b){return b-a;}):[];
+    if(ms.length){
+      var msText=ms.map(function(m){return m===0?t('milestone_due_today'):(LANG==='bn'?(m+' দিন আগে'):(m+(m===1?' day':' days')+' before'));}).join(', ');
+      html+='<div><dt>'+t('dt_reminders')+'</dt><dd>'+esc(msText)+'</dd></div>';
+    }
   }
   if(d.notes)html+='<div><dt>'+t('dt_notes')+'</dt><dd>'+esc(d.notes).replace(/\n/g,'<br>')+'</dd></div>';
   if(d.files&&d.files.length){
@@ -968,8 +1474,9 @@ function openDetail(id){
       var isImg=(f.mime||'').indexOf('image/')===0;
       // Photos load and show themselves right away; PDFs/other files still
       // need an explicit "View" tap to fetch and open them.
-      return '<li><div class="file-row"><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span>'+
-        (isImg?'':'<button class="btn small" type="button" data-view="'+esc(f.id)+'">'+t('btn_view')+'</button>')+
+      return '<li><div class="file-row"><span class="nm">'+esc(f.name)+'<small>'+sizeText(f.size)+'</small></span><span>'+
+        (isImg?'':'<button class="btn small" type="button" data-view="'+esc(f.id)+'">'+t('btn_view')+'</button> ')+
+        '<button class="btn small" type="button" data-download="'+esc(f.id)+'" data-fname="'+esc(f.name)+'">'+t('btn_download')+'</button></span>'+
         '</div>'+
         (isImg?'<div class="preview" data-preview-for="'+esc(f.id)+'"><span class="msg info" style="margin:0">'+(LANG==='bn'?'ছবি লোড হচ্ছে…':'Loading image…')+'</span></div>':'')+
         '</li>';
@@ -989,9 +1496,11 @@ function openDetail(id){
   var cl=calLink(d);
   $('#viewActions').innerHTML=
     '<button class="btn" type="button" id="editBtn">'+t('btn_edit')+'</button>'+
+    '<button class="btn" type="button" id="shareBtn">'+t('btn_share')+'</button>'+
     '<a class="btn" target="_blank" rel="noopener" href="'+esc(whatsAppLink(d))+'">'+t('share_whatsapp')+'</a>'+
     (cl?'<a class="btn" target="_blank" rel="noopener" href="'+esc(cl)+'">'+t('hero_add_calendar')+'</a>':'')+
     '<span class="grow"></span><button class="btn danger" type="button" id="delBtn">'+t('btn_delete')+'</button>';
+  $('#shareBtn').addEventListener('click',function(){shareDoc(d);});
 
   var shown=false,rb=$('#revealBtn');
   if(rb){
@@ -1012,6 +1521,9 @@ function openDetail(id){
   });
   $('#viewBody').querySelectorAll('[data-view]').forEach(function(b){
     b.addEventListener('click',function(){viewFile(b.dataset.view,b);});
+  });
+  $('#viewBody').querySelectorAll('[data-download]').forEach(function(b){
+    b.addEventListener('click',function(){downloadFile(b.dataset.download,b.dataset.fname);});
   });
   // Photos fetch and show themselves as soon as the dialog opens — no need
   // to tap "View" first just to see what was scanned.
@@ -1052,6 +1564,30 @@ function viewFile(fid,btn){
 }
 $('#viewDlg').addEventListener('close',function(){urls.forEach(function(u){URL.revokeObjectURL(u);});urls=[];});
 
+/* ---------------- download & share ---------------- */
+function downloadFile(fid,filename){
+  fetch(API_BASE.replace(/\/$/,'')+'/api/files/'+fid,{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
+    if(!r.ok)throw new Error();
+    return r.blob();
+  }).then(function(blob){
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download=filename||'file';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},4000);
+  }).catch(function(){toast(t('err_could_not_open_file'));});
+}
+function shareDoc(d){
+  var n=daysLeft(d);
+  var text=d.title+(n!==null?(' '+whenText(n)):'')+(d.expiry?(' ('+fmt(d.expiry)+')'):'');
+  if(navigator.share){
+    navigator.share({title:d.title,text:text}).catch(function(){});
+  } else {
+    try{
+      navigator.clipboard.writeText(text).then(function(){toast(t('toast_copied_summary'));},function(){toast(text);});
+    }catch(e){toast(text);}
+  }
+}
+
 /* ---------------- form dialog ---------------- */
 function renderTypeOptions(){
   $('#f-type').innerHTML=Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k].icon+' '+esc(typeLabel(TYPES[k]))+'</option>';}).join('');
@@ -1064,6 +1600,7 @@ function applyDateRowVisibility(T){
   var hide=!!T.noExpiry;
   $('#dateRow').hidden=hide;
   $('#leadWrap').hidden = hide || !$('#f-expiry').value;
+  var mw=$('#milestoneWrap');if(mw)mw.hidden = hide || !$('#f-expiry').value;
 }
 $('#f-type').addEventListener('change',function(){
   var T=TYPES[this.value];
@@ -1076,11 +1613,39 @@ $('#f-type').addEventListener('change',function(){
   if(!editingId&&hint&&(!n.value||n.dataset.auto==='1')){n.value=hint;n.dataset.auto='1';}
   else if(!editingId&&!hint&&n.dataset.auto==='1'){n.value='';}
   if(T.noExpiry){ $('#f-issue').value=''; $('#f-expiry').value=''; }
+  // Automatic Categories: default the category from the chosen type, but
+  // only while adding and only if the person hasn't typed their own yet.
+  var cat=$('#f-category');
+  if(!editingId&&(!cat.value||cat.dataset.auto==='1')){cat.value=categoryLabel(T.cat||'other');cat.dataset.auto='1';}
   applyDateRowVisibility(T);
 });
 $('#f-title').addEventListener('input',function(){this.dataset.auto='0';});
 $('#f-notes').addEventListener('input',function(){this.dataset.auto='0';});
-$('#f-expiry').addEventListener('input',function(){$('#leadWrap').hidden=!this.value;});
+$('#f-category').addEventListener('input',function(){this.dataset.auto='0';});
+$('#f-expiry').addEventListener('input',function(){$('#leadWrap').hidden=!this.value;var mw=$('#milestoneWrap');if(mw)mw.hidden=!this.value;});
+
+/* ---------------- Smart Reminder System: milestone chips ---------------- */
+var DOC_MILESTONE_OPTIONS=[180,90,30,14,7,3,1];
+var SUB_MILESTONE_OPTIONS=[30,14,7,3,1,0];
+var DEFAULT_DOC_MILESTONES_CLIENT=[180,90,30,7,1];
+var DEFAULT_SUB_MILESTONES_CLIENT=[7,3,1,0];
+function milestoneChipLabel(m){
+  if(m===0) return t('milestone_due_today');
+  return LANG==='bn' ? (m+' দিন আগে') : (m+' day'+(m===1?'':'s')+' before');
+}
+function renderMilestoneChips(container,selected,options){
+  if(!container)return;
+  container.innerHTML=options.map(function(m){
+    var on=selected.indexOf(m)>=0;
+    return '<label class="chip'+(on?' on':'')+'"><input type="checkbox" value="'+m+'"'+(on?' checked':'')+'>'+esc(milestoneChipLabel(m))+'</label>';
+  }).join('');
+  container.querySelectorAll('input').forEach(function(cb){
+    cb.addEventListener('change',function(){cb.closest('.chip').classList.toggle('on',cb.checked);});
+  });
+}
+function getMilestoneValues(container){
+  return Array.prototype.map.call(container.querySelectorAll('input:checked'),function(cb){return Number(cb.value);});
+}
 
 var editingId=null, existingFiles=[], pendingFile=null, formPreviewUrl=null;
 function renderFileList(){
@@ -1098,12 +1663,23 @@ function renderFileList(){
 function updateFormPreview(){
   var el=$('#formFilePreview');
   if(formPreviewUrl){ URL.revokeObjectURL(formPreviewUrl); formPreviewUrl=null; }
-  if(pendingFile && pendingFile.type && pendingFile.type.indexOf('image/')===0){
+  var isImage = pendingFile && pendingFile.type && pendingFile.type.indexOf('image/')===0;
+  if(isImage){
     formPreviewUrl=URL.createObjectURL(pendingFile);
     el.innerHTML='<img src="'+formPreviewUrl+'" alt="">';
   } else {
     el.innerHTML='';
   }
+  // "Scan & autofill" only makes sense for an actual photo — a PDF can't be
+  // sent to the vision model the same way, and there's nothing selected at
+  // all right after the dialog opens or a file is removed.
+  var scanBtn=$('#scanBtn');
+  if(scanBtn){
+    scanBtn.hidden=!isImage;
+    scanBtn.disabled=false;
+    scanBtn.textContent=t('scan_btn');
+  }
+  var scanMsg=$('#scanMsg');if(scanMsg)scanMsg.textContent='';
 }
 $('#formDlg').addEventListener('close',function(){
   if(formPreviewUrl){ URL.revokeObjectURL(formPreviewUrl); formPreviewUrl=null; }
@@ -1116,6 +1692,99 @@ $('#f-files').addEventListener('change',function(){
   pendingFile=f;renderFileList();
 });
 
+/* ---------------- scan & autofill (NID / passport / etc. photos) ---------------- */
+// Best-effort field mapping: the server returns whatever labels the vision
+// model actually saw on the document (which vary by document type and can be
+// in Bangla or English), so this doesn't assume a fixed schema. It routes
+// the name into "Belongs to", a document-number-looking field into
+// "Document number", clean dates into the date pickers when it can parse
+// them, and dumps everything else (father's/mother's name, address, etc.)
+// into Notes under a clear heading so nothing scanned is ever silently lost.
+function guessTypeKey(docType){
+  var s=String(docType||'').toLowerCase();
+  if(/national\s*id|\bnid\b|পরিচয়পত্র/.test(s))return 'nid';
+  if(/passport|পাসপোর্ট/.test(s))return 'passport';
+  if(/birth/.test(s))return 'birth';
+  if(/trade/.test(s))return 'trade';
+  if(/\btin\b/.test(s))return 'tin';
+  return null;
+}
+function pad2(n){n=String(n);return n.length<2?'0'+n:n;}
+function toIsoDate(s){
+  s=String(s||'').trim();
+  var m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m)return m[1]+'-'+pad2(m[2])+'-'+pad2(m[3]);
+  m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if(m)return m[3]+'-'+pad2(m[2])+'-'+pad2(m[1]); // assumes DD/MM/YYYY, the common local format
+  return null;
+}
+function applyScanResult(result){
+  var fields=(result&&result.fields)||{};
+  var keys=Object.keys(fields);
+  var used={};
+  function take(re){
+    for(var i=0;i<keys.length;i++){
+      var k=keys[i];
+      if(used[k])continue;
+      if(re.test(k)){used[k]=true;return {label:k,value:String(fields[k])};}
+    }
+    return null;
+  }
+  var typeKey=guessTypeKey(result&&result.documentType);
+  if(typeKey&&TYPES[typeKey]&&$('#f-type').value!==typeKey){
+    $('#f-type').value=typeKey;
+    $('#f-type').dispatchEvent(new Event('change'));
+  }
+  var nameMatch=take(/^\s*(full\s*name|name|নাম)\s*$/i);
+  if(nameMatch&&nameMatch.value&&!$('#f-holder').value){
+    $('#f-holder').value=nameMatch.value;
+  }
+  var numberMatch=take(/(id\s*no|document\s*no|নম্বর|নং|number)/i);
+  if(numberMatch&&numberMatch.value&&!$('#f-number').value){
+    $('#f-number').value=numberMatch.value;
+  }
+  var issueMatch=take(/issue|ইস্যু/i);
+  if(issueMatch){
+    var isoIssue=toIsoDate(issueMatch.value);
+    if(isoIssue&&!$('#f-issue').value)$('#f-issue').value=isoIssue;
+    else used[issueMatch.label]=!!isoIssue; // couldn't parse it — leave it for the notes instead
+  }
+  var expiryMatch=take(/expiry|expiration|valid\s*(until|thru|to)|মেয়াদ/i);
+  if(expiryMatch){
+    var isoExpiry=toIsoDate(expiryMatch.value);
+    if(isoExpiry&&!$('#f-expiry').value){$('#f-expiry').value=isoExpiry;applyDateRowVisibility(TYPES[$('#f-type').value]);}
+    else used[expiryMatch.label]=!!isoExpiry;
+  }
+  var leftover=[];
+  keys.forEach(function(k){
+    if(used[k])return;
+    var v=fields[k];
+    if(v!=null&&String(v).trim()!=='')leftover.push(k+': '+v);
+  });
+  if(leftover.length){
+    var block=t('scanned_details_label')+'\n'+leftover.join('\n');
+    var notesEl=$('#f-notes');
+    notesEl.value=notesEl.value?(notesEl.value+'\n\n'+block):block;
+    notesEl.dataset.auto='0';
+  }
+}
+$('#scanBtn').addEventListener('click',function(){
+  if(!pendingFile)return;
+  var btn=this, msg=$('#scanMsg');
+  msg.textContent='';msg.className='msg';
+  btn.disabled=true;btn.textContent=t('scanning');
+  var fd=new FormData();
+  fd.append('file',pendingFile);
+  api('/api/documents/scan',{method:'POST',body:fd}).then(function(res){
+    applyScanResult(res);
+    toast(t('scan_toast'));
+  }).catch(function(e){
+    msg.textContent=(e&&e.error)?e.error:t('err_scan_could_not_read');
+  }).then(function(){
+    btn.disabled=false;btn.textContent=t('scan_btn');
+  });
+});
+
 function openForm(id){
   editingId=id||null;pendingFile=null;
   var d=id?docs.find(function(x){return x.id===id;}):null;
@@ -1125,13 +1794,19 @@ function openForm(id){
   var T=TYPES[$('#f-type').value];
   $('#f-title').value=d?d.title:T.name;$('#f-title').dataset.auto=d?'0':'1';
   $('#f-holder').value=d?d.holder||'':'';
+  renderProfileSelect($('#f-profile'));
+  $('#f-profile').value=d?(d.profile_id||''):'';
+  $('#f-category').value=d?(d.category||''):categoryLabel(T.cat||'other');
+  $('#f-category').dataset.auto=d?'0':'1';
   $('#f-number').value=d?d.number||'':'';
   $('#f-issue').value=d?d.issue||'':'';
   $('#f-expiry').value=d?d.expiry||'':'';
   $('#f-lead').value=String(d?(d.lead||30):T.lead);
   $('#f-notes').value=d?(d.notes||''):(typeHint(T)||'');
   $('#f-notes').dataset.auto=d?'0':'1';
+  renderMilestoneChips($('#milestoneChips'), d&&d.reminder_days&&d.reminder_days.length ? d.reminder_days : DEFAULT_DOC_MILESTONES_CLIENT, DOC_MILESTONE_OPTIONS);
   applyDateRowVisibility(T);
+  renderCategoryList();
   $('#formMsg').textContent='';
   $('#f-files').value='';
   renderFileList();
@@ -1148,7 +1823,9 @@ $('#form').addEventListener('submit',function(e){
   if(!title){msg.textContent=t('err_give_name');$('#f-title').focus();return;}
   if(issue&&expiry&&expiry<issue){msg.textContent=t('err_expiry_before_issue');return;}
   var payload={type:$('#f-type').value,title:title,holder:$('#f-holder').value.trim(),number:$('#f-number').value.trim(),
-    issue:issue,expiry:expiry,lead:Number($('#f-lead').value)||30,notes:$('#f-notes').value.trim()};
+    issue:issue,expiry:expiry,lead:Number($('#f-lead').value)||30,notes:$('#f-notes').value.trim(),
+    category:$('#f-category').value.trim(),profileId:$('#f-profile').value||null,
+    reminderDays:getMilestoneValues($('#milestoneChips'))};
   btn.disabled=true;btn.textContent=t('saving');
 
   var save = editingId
@@ -1166,11 +1843,170 @@ $('#form').addEventListener('submit',function(e){
   }).then(function(){btn.disabled=false;btn.textContent=t('save_doc');});
 });
 
+/* ==================== Subscription & Payment Reminder ==================== */
+function subDaysLeft(s){ return s.next_due?Math.round((parseD(s.next_due)-today())/864e5):null; }
+function subTone(s){ var n=subDaysLeft(s); if(n===null)return 'none'; if(n<=7)return 'red'; if(n<=30)return 'amber'; return 'green'; }
+function subCatOf(s){ return SUB_CATEGORIES[s.category]||SUB_CATEGORIES.other; }
+function sortedSubs(list){
+  return list.slice().sort(function(a,b){
+    var da=subDaysLeft(a),db=subDaysLeft(b);
+    var ka=da===null?1e9:da,kb=db===null?1e9:db;
+    if(ka!==kb)return ka-kb;
+    return a.name.localeCompare(b.name);
+  });
+}
+function loadSubs(){
+  api('/api/subscriptions').then(function(data){
+    subs=data.subscriptions||[];
+    subs.forEach(function(s){ if(!Array.isArray(s.reminder_days))s.reminder_days=[]; });
+    renderSubs();
+  }).catch(function(e){toast(e.error||t('err_could_not_load_subs'));});
+}
+function renderSubHealthDash(){
+  var el=$('#subHealthDash');
+  if(!subs.length){el.innerHTML='';return;}
+  var overdue=0,soon=0,upcoming=0;
+  subs.forEach(function(s){
+    var n=subDaysLeft(s);
+    if(n===null)return;
+    if(n<0){overdue++;return;}
+    if(n<=30){soon++;return;}
+    upcoming++;
+  });
+  var tiles=[['red',overdue,t('sub_health_overdue')],['amber',soon,t('sub_health_soon')],['green',upcoming,t('sub_health_upcoming')]];
+  var html='<h2>'+t('sub_health_title')+'</h2><div class="health-grid">'+tiles.map(function(x){
+    return '<div class="health-tile '+x[0]+'"><b>'+x[1]+'</b><span>'+x[2]+'</span></div>';
+  }).join('')+'</div>';
+  var next=sortedSubs(subs).filter(function(s){var n=subDaysLeft(s);return n!==null;})[0];
+  if(next){
+    var C=subCatOf(next),n=subDaysLeft(next);
+    html+='<button type="button" class="next-expiry" data-subopen="'+esc(next.id)+'"><span class="ic">'+C.icon+'</span><span><span class="nm">'+esc(next.name)+'</span><br><span class="wh">'+esc(whenText(n))+'</span></span></button>';
+  }
+  el.innerHTML=html;
+}
+$('#subHealthDash').addEventListener('click',function(e){var b=e.target.closest('[data-subopen]');if(b)openSubDetail(b.dataset.subopen);});
+function renderSubs(){
+  renderSubHealthDash();
+  var ul=$('#subList'),em=$('#subEmpty');
+  if(!subs.length){
+    ul.innerHTML='';em.hidden=false;
+    em.innerHTML='<h2>'+t('sub_empty_h2')+'</h2><p>'+t('sub_empty_p')+'</p><div class="cta"><button class="btn primary" type="button" data-act="addsub">'+t('sub_empty_cta')+'</button></div>';
+  } else {
+    em.hidden=true;
+    ul.innerHTML=sortedSubs(subs).map(function(s){
+      var n=subDaysLeft(s),C=subCatOf(s),tn=subTone(s);
+      var countHtml = n===null ? '<span class="count none"><b>&ndash;</b><small>'+t('no_expiry')+'</small></span>'
+        : n<0 ? '<span class="count red"><b>'+(-n)+'</b><small>'+(LANG==='bn'?'দিন বাকি (বকেয়া)':((n===-1?'day':'days')+' overdue'))+'</small></span>'
+        : '<span class="count '+tn+'"><b>'+n+'</b><small>'+(LANG==='bn'?'দিন বাকি':((n===1?'day':'days')+' left'))+'</small></span>';
+      var recurText = s.recurrence==='yearly' ? t('recurrence_yearly') : t('recurrence_monthly');
+      return '<li><button type="button" class="row" data-subopen="'+esc(s.id)+'">'+countHtml+
+        '<span class="info"><span class="t">'+C.icon+' '+esc(s.name)+'</span>'+
+        '<span class="d">'+(s.next_due?esc(fmt(s.next_due)):t('sub_no_due_date'))+'</span>'+
+        '<span class="s">'+esc(subCategoryLabel(C))+(s.amount?(' · '+esc(s.amount)):'')+' · '+recurText+'</span></span>'+
+        '<span class="chev" aria-hidden="true">&rsaquo;</span></button></li>';
+    }).join('');
+  }
+}
+$('#subList').addEventListener('click',function(e){var b=e.target.closest('[data-subopen]');if(b)openSubDetail(b.dataset.subopen);});
+$('#subEmpty').addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(b&&b.dataset.act==='addsub')openSubForm();});
+$('#addSubBtn').addEventListener('click',function(){openSubForm();});
+
+function renderSubCategoryOptions(){
+  $('#s-category').innerHTML=Object.keys(SUB_CATEGORIES).map(function(k){
+    return '<option value="'+k+'">'+SUB_CATEGORIES[k].icon+' '+esc(subCategoryLabel(SUB_CATEGORIES[k]))+'</option>';
+  }).join('');
+}
+$('#s-category').addEventListener('change',function(){
+  if(editingSubId)return;
+  var C=SUB_CATEGORIES[this.value];
+  if(C)$('#s-recurrence').value=C.recurrence;
+});
+var editingSubId=null;
+function openSubForm(id){
+  editingSubId=id||null;
+  var s=id?subs.find(function(x){return x.id===id;}):null;
+  renderSubCategoryOptions();
+  renderProfileSelect($('#s-profile'));
+  $('#subFormTitle').textContent=s?t('sub_form_title_edit'):t('sub_form_title_add');
+  $('#s-category').value=s?s.category:'other';
+  $('#s-name').value=s?s.name:'';
+  $('#s-profile').value=s?(s.profile_id||''):'';
+  $('#s-amount').value=s?(s.amount||''):'';
+  $('#s-recurrence').value=s?s.recurrence:(SUB_CATEGORIES[$('#s-category').value].recurrence);
+  $('#s-nextdue').value=s?(s.next_due||''):'';
+  $('#s-notes').value=s?(s.notes||''):'';
+  renderMilestoneChips($('#subMilestoneChips'), s&&s.reminder_days&&s.reminder_days.length ? s.reminder_days : DEFAULT_SUB_MILESTONES_CLIENT, SUB_MILESTONE_OPTIONS);
+  $('#subFormMsg').textContent='';
+  $('#subSaveBtn').disabled=false;$('#subSaveBtn').textContent=t('save');
+  $('#subFormDlg').showModal();
+  setTimeout(function(){$('#s-name').focus();},30);
+}
+$('#subForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var msg=$('#subFormMsg'),btn=$('#subSaveBtn');msg.textContent='';
+  var name=$('#s-name').value.trim();
+  if(!name){msg.textContent=t('err_give_name');$('#s-name').focus();return;}
+  var payload={category:$('#s-category').value,name:name,profileId:$('#s-profile').value||null,
+    amount:$('#s-amount').value.trim(),recurrence:$('#s-recurrence').value,nextDue:$('#s-nextdue').value,
+    notes:$('#s-notes').value.trim(),reminderDays:getMilestoneValues($('#subMilestoneChips'))};
+  btn.disabled=true;btn.textContent=t('saving');
+  var save = editingSubId
+    ? api('/api/subscriptions/'+editingSubId,{method:'PUT',body:JSON.stringify(payload)})
+    : api('/api/subscriptions',{method:'POST',body:JSON.stringify(payload)});
+  save.then(function(){
+    $('#subFormDlg').close();toast(editingSubId?t('toast_changes_saved'):t('toast_sub_saved'));loadSubs();
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){btn.disabled=false;btn.textContent=t('save');});
+});
+
+function openSubDetail(id){
+  var s=subs.find(function(x){return x.id===id;});if(!s)return;
+  var C=subCatOf(s),n=subDaysLeft(s),tn=subTone(s);
+  $('#subViewTitle').textContent=C.icon+' '+s.name;
+  var status;
+  if(n===null)status=t('sub_no_due_date');
+  else if(n<0)status=LANG==='bn'?((-n)+' দিন আগে বকেয়া হয়ে গেছে'):('Overdue by '+plural(-n,'day'));
+  else if(n===0)status=LANG==='bn'?'আজ পরিশোধ করতে হবে':'Due today';
+  else status=LANG==='bn'?(n+' দিন বাকি'):(plural(n,'day')+' left');
+  var html='<span class="status-line '+tn+'">'+esc(status)+'</span><dl class="facts">';
+  html+='<div><dt>'+t('dt_category')+'</dt><dd>'+esc(subCategoryLabel(C))+'</dd></div>';
+  var prof=s.profile_id?profiles.filter(function(p){return p.id===s.profile_id;})[0]:null;
+  if(prof)html+='<div><dt>'+t('dt_family')+'</dt><dd>'+esc(prof.name)+' ('+esc(relationLabel(prof.relation))+')</dd></div>';
+  if(s.amount)html+='<div><dt>'+t('field_amount')+'</dt><dd>'+esc(s.amount)+'</dd></div>';
+  html+='<div><dt>'+t('field_recurrence')+'</dt><dd>'+(s.recurrence==='yearly'?t('recurrence_yearly'):t('recurrence_monthly'))+'</dd></div>';
+  if(s.next_due)html+='<div><dt>'+t('field_next_due')+'</dt><dd>'+esc(fmt(s.next_due))+'</dd></div>';
+  if(s.last_paid_at)html+='<div><dt>'+t('sub_last_paid')+'</dt><dd>'+esc(new Date(Number(s.last_paid_at)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}))+'</dd></div>';
+  if(s.notes)html+='<div><dt>'+t('dt_notes')+'</dt><dd>'+esc(s.notes).replace(/\n/g,'<br>')+'</dd></div>';
+  html+='</dl>';
+  $('#subViewBody').innerHTML=html;
+
+  $('#subViewActions').innerHTML=
+    '<button class="btn" type="button" id="subEditBtn">'+t('btn_edit')+'</button>'+
+    (s.next_due?'<button class="btn primary" type="button" id="subPaidBtn">'+t('sub_mark_paid')+'</button>':'')+
+    '<span class="grow"></span><button class="btn danger" type="button" id="subDelBtn">'+t('btn_delete')+'</button>';
+  $('#subEditBtn').addEventListener('click',function(){$('#subViewDlg').close();openSubForm(s.id);});
+  var pb=$('#subPaidBtn');
+  if(pb)pb.addEventListener('click',function(){
+    pb.disabled=true;
+    api('/api/subscriptions/'+s.id+'/renew',{method:'POST'}).then(function(){
+      $('#subViewDlg').close();toast(t('sub_renewed_toast'));loadSubs();
+    }).catch(function(e){toast(e.error||t('err_could_not_save'));pb.disabled=false;});
+  });
+  var armed=false,db=$('#subDelBtn');
+  db.addEventListener('click',function(){
+    if(!armed){armed=true;db.classList.add('armed');db.textContent=t('btn_delete_confirm');return;}
+    db.disabled=true;
+    api('/api/subscriptions/'+s.id,{method:'DELETE'}).then(function(){
+      $('#subViewDlg').close();toast(t('toast_deleted'));loadSubs();
+    }).catch(function(e){toast(e.error||t('err_could_not_delete'));db.disabled=false;});
+  });
+  var dlg=$('#subViewDlg');if(!dlg.open)dlg.showModal();
+}
+
 document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 
@@ -1185,7 +2021,7 @@ if('serviceWorker' in navigator){
 var resetToken=new URLSearchParams(location.search).get('reset');
 if(resetToken){ showLock(); }
 else if(TOKEN && API_BASE){
-  api('/api/me').then(function(data){user=data.user;enterApp();}).catch(function(){TOKEN=null;localStorage.removeItem('ld_token');showLock();});
+  api('/api/me').then(function(data){user=data.user;afterAuth();}).catch(function(){TOKEN=null;localStorage.removeItem('ld_token');showLock();});
 } else {
   showLock();
 }

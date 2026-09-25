@@ -23,8 +23,22 @@ app.use(cors());
 // still use plain SMTP (e.g. the local catcher on :1025), so that path is
 // kept as a fallback when BREVO_API_KEY isn't set.
 const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
-const MAIL_FROM_EMAIL = process.env.SMTP_FROM || process.env.SMTP_USER || '';
-const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'Life Documents';
+// SMTP_FROM is commonly a full "Display Name <email@x.com>" string (that's
+// what nodemailer's `from` field wants) — but Brevo's API wants the display
+// name and the bare email as two separate fields, so pull them apart here.
+const MAIL_FROM_RAW = process.env.SMTP_FROM || process.env.SMTP_USER || '';
+function parseFromAddress(raw) {
+  const s = String(raw || '').trim();
+  const m = s.match(/^(.*)<\s*([^<>\s]+)\s*>\s*$/);
+  if (m) {
+    const name = m[1].trim().replace(/^"(.*)"$/, '$1');
+    return { name: name || '', email: m[2].trim() };
+  }
+  return { name: '', email: s };
+}
+const parsedFrom = parseFromAddress(MAIL_FROM_RAW);
+const MAIL_FROM_EMAIL = parsedFrom.email;
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || parsedFrom.name || 'Life Documents';
 
 const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -56,7 +70,7 @@ function sendMail(to, subject, text) {
     return sendMailViaBrevo(to, subject, text);
   }
   if (!transporter) return Promise.reject(new Error('Email is not configured on the server (.env) — set BREVO_API_KEY, or SMTP_HOST for local/dev use.'));
-  return transporter.sendMail({ from: MAIL_FROM_EMAIL, to, subject, text });
+  return transporter.sendMail({ from: MAIL_FROM_RAW || MAIL_FROM_EMAIL, to, subject, text });
 }
 
 /* ---------------- push notifications (admin phone alerts) ---------------- */

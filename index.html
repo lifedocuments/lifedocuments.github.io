@@ -67,6 +67,7 @@ h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1;letter-spacing:-.02
 .lock-card{width:min(440px,100%)}
 .wordmark{font-family:var(--display);font-weight:800;font-size:clamp(2.2rem,8vw,3rem);letter-spacing:-.035em;line-height:.98;margin:0 0 12px}
 .lock p.lede{color:var(--muted);margin:0 0 24px;font-size:17px}
+.lock-tagline{color:var(--muted);margin:0 0 16px;font-size:15px;font-weight:600}
 .field{display:block;margin-bottom:16px}
 .field>span{display:block;font-weight:600;font-size:15px;margin-bottom:6px}
 .field small{display:block;color:var(--muted);font-size:14px;margin-top:5px}
@@ -119,6 +120,9 @@ main{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 64px}
 .announce-item h4{margin:0 0 6px;font-size:15px}
 .announce-item .when{color:var(--muted);font-size:13px;display:block;margin-top:6px}
 .announce-item p{margin:0;white-space:pre-wrap;font-size:14px}
+.about-list{list-style:none;margin:12px 0;padding:0;display:grid;gap:10px}
+.about-list li{display:flex;gap:10px;align-items:flex-start;font-size:15px}
+.about-tagline{font-weight:700;text-align:center;margin:20px 0 0}
 .hero[data-tone="amber"] .btn:hover{background:rgba(0,0,0,.16)}
 .hero .btn:focus-visible{outline-color:currentColor}
 
@@ -261,6 +265,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 <section id="lock" class="lock" hidden>
   <div class="lock-card">
     <h1 class="wordmark">Life<br>Documents</h1>
+    <p class="lock-tagline" data-i18n="lock_tagline">Store it. Track it. Never miss it.</p>
 
     <div id="panelSignIn">
       <p class="lede" data-i18n="si_lede">Sign in to your vault.</p>
@@ -304,6 +309,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       <div class="actions"><button id="npGo" class="btn primary" type="button" data-i18n="np_go">Save password</button></div>
     </div>
 
+    <p class="swap" style="margin-top:18px"><button id="lockAboutBtn" class="linklike" type="button" data-i18n="lock_about_link">About Life Documents</button></p>
     <button id="backendLinkBtn" class="backend-link" type="button" hidden>Backend server settings</button>
   </div>
 </section>
@@ -478,10 +484,33 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
         <button type="button" class="btn small" id="introReplayBtn" data-i18n="intro_replay_btn">Show intro again</button>
       </div>
+      <div class="field">
+        <span data-i18n="acct_about_label">About</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="acct_about_lede">Learn what Life Documents is and how it helps.</p>
+        <button type="button" class="btn small" id="acctAboutBtn" data-i18n="acct_about_btn">About Life Documents</button>
+      </div>
       <p id="acctMsg" class="msg" role="alert"></p>
     </div>
     <div class="df"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
   </form>
+</dialog>
+
+<dialog id="aboutDlg" aria-labelledby="aboutTitle">
+  <div class="dh"><h2 id="aboutTitle" data-i18n="about_title">About Life Documents</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p data-i18n="about_intro">Life Documents is a simple personal organization app designed to help you keep your important documents, renewals, and subscriptions in one place.</p>
+    <p style="margin:14px 0 6px;font-weight:700" data-i18n="about_help_lede">We help you:</p>
+    <ul class="about-list">
+      <li><span aria-hidden="true">📄</span><span data-i18n="about_b1">Store important documents</span></li>
+      <li><span aria-hidden="true">🔔</span><span data-i18n="about_b2">Remember upcoming expiries and payments</span></li>
+      <li><span aria-hidden="true">👨‍👩‍👧</span><span data-i18n="about_b3">Organize documents for your family</span></li>
+      <li><span aria-hidden="true">📊</span><span data-i18n="about_b4">Stay on top of what needs attention</span></li>
+      <li><span aria-hidden="true">🔐</span><span data-i18n="about_b5">Keep your important information organized and accessible</span></li>
+    </ul>
+    <p data-i18n="about_goal">Our goal is simple: help you stay organized and never miss an important deadline.</p>
+    <p class="about-tagline" data-i18n="about_tagline">Life Documents — Store it. Track it. Never miss it.</p>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
 
 <dialog id="profilesDlg" aria-labelledby="profilesTitle">
@@ -760,6 +789,15 @@ var STR = {
     bundle_items_lede:'Check the documents that belong in this bundle.', bundle_no_docs:'Add some documents first.',
     toast_bundle_added:'Bundle created', close_btn:'Close',
     announce_title:'Announcements', announce_empty:'No announcements yet.',
+    lock_tagline:'Store it. Track it. Never miss it.', lock_about_link:'About Life Documents',
+    acct_about_label:'About', acct_about_lede:'Learn what Life Documents is and how it helps.', acct_about_btn:'About Life Documents',
+    about_title:'About Life Documents',
+    about_intro:'Life Documents is a simple personal organization app designed to help you keep your important documents, renewals, and subscriptions in one place.',
+    about_help_lede:'We help you:',
+    about_b1:'Store important documents', about_b2:'Remember upcoming expiries and payments', about_b3:'Organize documents for your family',
+    about_b4:'Stay on top of what needs attention', about_b5:'Keep your important information organized and accessible',
+    about_goal:'Our goal is simple: help you stay organized and never miss an important deadline.',
+    about_tagline:'Life Documents — Store it. Track it. Never miss it.',
     applock_title:'App Lock (PIN)', pin_lede:'Enter your PIN to continue.', pin_use_password:'Use your password instead',
     pin_status_on:'PIN lock is on.', pin_status_off:'PIN lock is off.', pin_enable_btn:'Turn on PIN lock', pin_change_btn:'Change PIN', pin_disable_btn:'Turn off PIN lock',
     pin_save_btn:'Save PIN', field_new_pin_ph:'New PIN', field_confirm_pin_ph:'Confirm PIN', field_current_password_ph:'Your account password',
@@ -857,6 +895,15 @@ var STR = {
     bundle_items_lede:'এই বান্ডেলে যে ডকুমেন্টগুলো থাকবে সেগুলো চেক করুন।', bundle_no_docs:'প্রথমে কিছু ডকুমেন্ট যোগ করুন।',
     toast_bundle_added:'বান্ডেল তৈরি হয়েছে', close_btn:'বন্ধ করুন',
     announce_title:'ঘোষণা', announce_empty:'এখনো কোনো ঘোষণা নেই।',
+    lock_tagline:'সংরক্ষণ করুন। ট্র্যাক রাখুন। কখনো মিস করবেন না।', lock_about_link:'Life Documents সম্পর্কে',
+    acct_about_label:'পরিচিতি', acct_about_lede:'Life Documents কী এবং এটি কীভাবে সাহায্য করে তা জানুন।', acct_about_btn:'Life Documents সম্পর্কে',
+    about_title:'Life Documents সম্পর্কে',
+    about_intro:'Life Documents একটি সহজ ব্যক্তিগত সংগঠন অ্যাপ, যা আপনার গুরুত্বপূর্ণ ডকুমেন্ট, নবায়ন এবং সাবস্ক্রিপশন এক জায়গায় রাখতে সাহায্য করে।',
+    about_help_lede:'আমরা যেভাবে সাহায্য করি:',
+    about_b1:'গুরুত্বপূর্ণ ডকুমেন্ট সংরক্ষণ করুন', about_b2:'আসন্ন মেয়াদোত্তীর্ণ ও পেমেন্টের কথা মনে রাখুন', about_b3:'পরিবারের জন্য ডকুমেন্ট গুছিয়ে রাখুন',
+    about_b4:'কোন বিষয়ে নজর দিতে হবে তা সবসময় জেনে রাখুন', about_b5:'আপনার গুরুত্বপূর্ণ তথ্য গোছানো ও সহজলভ্য রাখুন',
+    about_goal:'আমাদের লক্ষ্য সহজ: আপনাকে গোছানো থাকতে এবং কোনো গুরুত্বপূর্ণ সময়সীমা যেন মিস না হয়, তা নিশ্চিত করতে সাহায্য করা।',
+    about_tagline:'Life Documents — সংরক্ষণ করুন। ট্র্যাক রাখুন। কখনো মিস করবেন না।',
     applock_title:'অ্যাপ লক (পিন)', pin_lede:'চালিয়ে যেতে আপনার পিন লিখুন।', pin_use_password:'পাসওয়ার্ড দিয়ে ঢুকুন',
     pin_status_on:'পিন লক চালু আছে।', pin_status_off:'পিন লক বন্ধ আছে।', pin_enable_btn:'পিন লক চালু করুন', pin_change_btn:'পিন পরিবর্তন করুন', pin_disable_btn:'পিন লক বন্ধ করুন',
     pin_save_btn:'পিন সংরক্ষণ করুন', field_new_pin_ph:'নতুন পিন', field_confirm_pin_ph:'পিন নিশ্চিত করুন', field_current_password_ph:'আপনার অ্যাকাউন্ট পাসওয়ার্ড',
@@ -963,7 +1010,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -2422,7 +2469,7 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 
@@ -2511,6 +2558,10 @@ $('#introReplayBtn').addEventListener('click',function(){
   $('#acctDlg').close();
   setTimeout(startTour,200);
 });
+
+/* ---------------- About ---------------- */
+$('#acctAboutBtn').addEventListener('click',function(){ $('#aboutDlg').showModal(); });
+$('#lockAboutBtn').addEventListener('click',function(){ $('#aboutDlg').showModal(); });
 
 /* ---------------- boot ---------------- */
 var resetToken=new URLSearchParams(location.search).get('reset');

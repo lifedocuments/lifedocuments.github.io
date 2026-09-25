@@ -35,6 +35,11 @@ async function init() {
     -- someone who's already signed in on a shared/unlocked device.
     ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_enabled BOOLEAN NOT NULL DEFAULT false;
+    -- First-login guided tour: the highest tour version this account has
+    -- seen. 0 means never seen. Bumping CURRENT_TOUR_VERSION in server.js
+    -- (e.g. when a major new feature ships) makes it resurface once for
+    -- everyone, without resetting anything else about the account.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS intro_seen_version INTEGER NOT NULL DEFAULT 0;
     -- Family Vault: named profiles (Me, Wife, Children, Parents, ...) that
     -- documents and subscriptions can optionally be tagged with. Everything
     -- still lives under one account/login — this is just a grouping tag.

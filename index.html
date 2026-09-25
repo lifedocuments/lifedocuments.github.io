@@ -222,6 +222,16 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 .profile-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .profile-row .nm{font-weight:700}
 .profile-row .rel{color:var(--muted);font-size:13px}
+
+/* First-login guided tour */
+.tour-hole{position:fixed;z-index:9998;border-radius:14px;box-shadow:0 0 0 9999px rgba(9,17,13,.62);pointer-events:none;transition:top .25s ease,left .25s ease,width .25s ease,height .25s ease}
+.tour-hole.center{box-shadow:0 0 0 9999px rgba(9,17,13,.62);width:0;height:0}
+.tour-card{position:fixed;z-index:9999;width:min(320px,calc(100vw - 32px));background:var(--surface);color:var(--ink);border-radius:14px;padding:18px;box-shadow:0 14px 40px rgba(0,0,0,.3);transition:top .25s ease,left .25s ease}
+.tour-card .tour-step{font-size:13px;color:var(--muted);font-weight:600;margin:0 0 6px}
+.tour-card h3{margin:0 0 8px;font-size:17px}
+.tour-card p{margin:0 0 16px;color:var(--muted);font-size:15px}
+.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tour-actions .grow{flex:1}
 @media (prefers-reduced-motion: no-preference){
   dialog[open]{animation:pop .16s ease-out}
   @keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
@@ -338,6 +348,19 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   </main>
 </div>
 
+<div id="tourHole" class="tour-hole" hidden></div>
+<div id="tourCard" class="tour-card" hidden role="dialog" aria-labelledby="tourTitle" aria-describedby="tourBody">
+  <p class="tour-step" id="tourStep"></p>
+  <h3 id="tourTitle"></h3>
+  <p id="tourBody"></p>
+  <div class="tour-actions">
+    <button type="button" class="btn small" id="tourSkipBtn" data-i18n="tour_skip">Skip</button>
+    <span class="grow"></span>
+    <button type="button" class="btn small" id="tourBackBtn" data-i18n="tour_back">Back</button>
+    <button type="button" class="btn small primary" id="tourNextBtn" data-i18n="tour_next">Next</button>
+  </div>
+</div>
+
 <dialog id="formDlg" aria-labelledby="formTitle">
   <div class="dh"><h2 id="formTitle">Add document</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
   <form id="form" novalidate>
@@ -424,6 +447,11 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
           <button type="button" class="btn small" id="pinChangeBtn" hidden data-i18n="pin_change_btn">Change PIN</button>
           <button type="button" class="btn small danger" id="pinDisableBtn" hidden data-i18n="pin_disable_btn">Turn off PIN lock</button>
         </div>
+      </div>
+      <div class="field">
+        <span data-i18n="intro_replay_title">Guided tour</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
+        <button type="button" class="btn small" id="introReplayBtn" data-i18n="intro_replay_btn">Show intro again</button>
       </div>
       <p id="acctMsg" class="msg" role="alert"></p>
     </div>
@@ -672,6 +700,14 @@ var STR = {
     err_pin_format:'Use a PIN of 4 to 8 digits.', err_pin_match:'The two PINs do not match.', err_current_password_required:'Enter your account password to confirm.',
     pin_too_short:'Enter your PIN.', pin_wrong:'Wrong PIN.', pin_too_many_tries:'Too many wrong tries. Sign in with your password.',
     toast_pin_saved:'PIN saved', toast_pin_off:'PIN lock turned off',
+    tour_next:'Next', tour_back:'Back', tour_skip:'Skip', tour_done:'Got it', tour_step_of:'Step {n} of {total}',
+    tour1_title:'Welcome to Life Documents', tour1_body:"Quick tour of what's here — tap Next to look around, or Skip anytime.",
+    tour2_title:'Your document health, at a glance', tour2_body:'See how many documents are active, expiring soon, or expired — and what’s coming up next — right here.',
+    tour3_title:'Add a document', tour3_body:'Add a document and we’ll sort it into a category automatically, and remind you 180, 90, 30, 7, and 1 day before it expires — customizable per document.',
+    tour4_title:'Family Vault', tour4_body:'Tag documents to yourself, your spouse, children, or parents, and filter your vault by person.',
+    tour5_title:'Subscriptions', tour5_body:'Switch here to track recurring payments — insurance, internet, mobile plans, loans, and more — with their own reminders.',
+    tour6_title:'App Lock', tour6_body:'Open Account to turn on a PIN, so your documents stay locked even if someone else picks up your phone.',
+    intro_replay_title:'Guided tour', intro_replay_lede:'See the quick tour of the app’s features again.', intro_replay_btn:'Show intro again',
     view_documents:'Documents', view_subscriptions:'Subscriptions', add_sub_btn:'Add subscription',
     field_amount:'Amount', field_amount_ph:'e.g. ৳500', field_recurrence:'Repeats', field_next_due:'Next due date', field_sub_name_ph:'e.g. Netflix',
     recurrence_monthly:'Every month', recurrence_yearly:'Every year',
@@ -755,6 +791,14 @@ var STR = {
     err_pin_format:'৪ থেকে ৮ সংখ্যার একটি পিন ব্যবহার করুন।', err_pin_match:'দুটি পিন মিলছে না।', err_current_password_required:'নিশ্চিত করতে আপনার অ্যাকাউন্ট পাসওয়ার্ড লিখুন।',
     pin_too_short:'আপনার পিন লিখুন।', pin_wrong:'ভুল পিন।', pin_too_many_tries:'অনেকবার ভুল হয়েছে। পাসওয়ার্ড দিয়ে সাইন ইন করুন।',
     toast_pin_saved:'পিন সংরক্ষিত হয়েছে', toast_pin_off:'পিন লক বন্ধ হয়েছে',
+    tour_next:'পরবর্তী', tour_back:'পেছনে', tour_skip:'বাদ দিন', tour_done:'বুঝেছি', tour_step_of:'ধাপ {n}/{total}',
+    tour1_title:'লাইফ ডকুমেন্টসে স্বাগতম', tour1_body:'কী কী আছে তা দেখতে একটা ছোট ট্যুর — এগিয়ে যেতে ‘পরবর্তী’ চাপুন, বা যেকোনো সময় ‘বাদ দিন’ চাপুন।',
+    tour2_title:'আপনার ডকুমেন্টের অবস্থা, এক নজরে', tour2_body:'কতগুলো ডকুমেন্ট সচল, মেয়াদ শেষ হতে যাচ্ছে, বা মেয়াদ শেষ হয়ে গেছে — এবং পরবর্তীতে কী আসছে — সব এখানেই দেখুন।',
+    tour3_title:'ডকুমেন্ট যোগ করুন', tour3_body:'একটা ডকুমেন্ট যোগ করলে আমরা সেটা অটোমেটিক ক্যাটাগরিতে সাজিয়ে দেব, আর মেয়াদ শেষ হওয়ার 180, 90, 30, 7, ও 1 দিন আগে মনে করিয়ে দেব — প্রতিটা ডকুমেন্টের জন্য আলাদাভাবে কাস্টমাইজ করা যায়।',
+    tour4_title:'ফ্যামিলি ভল্ট', tour4_body:'নিজের, স্ত্রী/স্বামীর, সন্তানের, বা বাবা-মায়ের নামে ডকুমেন্ট ট্যাগ করুন, এবং ব্যক্তি অনুযায়ী ভল্ট ফিল্টার করুন।',
+    tour5_title:'সাবস্ক্রিপশন', tour5_body:'বিমা, ইন্টারনেট, মোবাইল প্ল্যান, ঋণ, আর অন্যান্য নিয়মিত পেমেন্ট ট্র্যাক করতে এখানে সুইচ করুন — নিজস্ব রিমাইন্ডারসহ।',
+    tour6_title:'অ্যাপ লক', tour6_body:'অ্যাকাউন্ট থেকে পিন চালু করুন, যাতে অন্য কেউ আপনার ফোন হাতে নিলেও আপনার ডকুমেন্ট লক থাকে।',
+    intro_replay_title:'গাইডেড ট্যুর', intro_replay_lede:'অ্যাপের ফিচারগুলোর ছোট ট্যুরটা আবার দেখুন।', intro_replay_btn:'ইনট্রো আবার দেখুন',
     view_documents:'ডকুমেন্ট', view_subscriptions:'সাবস্ক্রিপশন', add_sub_btn:'সাবস্ক্রিপশন যোগ করুন',
     field_amount:'পরিমাণ', field_amount_ph:'যেমন: ৳৫০০', field_recurrence:'পুনরাবৃত্তি', field_next_due:'পরবর্তী পরিশোধের তারিখ', field_sub_name_ph:'যেমন: নেটফ্লিক্স',
     recurrence_monthly:'প্রতি মাসে', recurrence_yearly:'প্রতি বছর',
@@ -990,6 +1034,9 @@ function enterApp(){
     $('#adminBtn').hidden=!isAdmin;
   }).catch(function(){ isAdmin=false; $('#adminBtn').hidden=true; });
   window.scrollTo(0,0);
+  // Only ever auto-start once per page load (not on every PIN re-unlock),
+  // and only for an account that hasn't seen the current tour version yet.
+  if(user && user.showIntro && !tourShownThisLoad){ tourShownThisLoad=true; setTimeout(startTour,500); }
 }
 
 /* ---------------- admin dashboard (owner only) ---------------- */
@@ -2019,6 +2066,85 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   });
 }
+
+/* ---------------- first-login guided tour ---------------- */
+// Points at real header/toolbar buttons that always exist in the static
+// markup once #app is unhidden, so the tour doesn't need to wait for
+// documents/profiles to finish loading. sel:null centers the card with no
+// spotlight (used for the welcome step).
+var TOUR_STEPS=[
+  {sel:null,titleKey:'tour1_title',bodyKey:'tour1_body'},
+  {sel:'#healthDash',titleKey:'tour2_title',bodyKey:'tour2_body'},
+  {sel:'#addBtn',titleKey:'tour3_title',bodyKey:'tour3_body'},
+  {sel:'#familyBtn',titleKey:'tour4_title',bodyKey:'tour4_body'},
+  {sel:'#viewSwitch',titleKey:'tour5_title',bodyKey:'tour5_body'},
+  {sel:'#acctBtn',titleKey:'tour6_title',bodyKey:'tour6_body'}
+];
+var tourShownThisLoad=false, tourIndex=0, tourActive=false;
+function startTour(){
+  if(tourActive)return;
+  tourActive=true;tourIndex=0;
+  window.addEventListener('resize',tourReposition);
+  tourRender();
+}
+function tourRender(){
+  var step=TOUR_STEPS[tourIndex];
+  $('#tourStep').textContent=t('tour_step_of',{n:tourIndex+1,total:TOUR_STEPS.length});
+  $('#tourTitle').textContent=t(step.titleKey);
+  $('#tourBody').textContent=t(step.bodyKey);
+  $('#tourBackBtn').hidden=(tourIndex===0);
+  $('#tourNextBtn').textContent=(tourIndex===TOUR_STEPS.length-1)?t('tour_done'):t('tour_next');
+  $('#tourHole').hidden=false;$('#tourCard').hidden=false;
+  var target=step.sel?document.querySelector(step.sel):null;
+  if(target&&target.scrollIntoView)target.scrollIntoView({block:'center',behavior:'smooth'});
+  setTimeout(tourReposition,target?260:0);
+}
+function tourReposition(){
+  if(!tourActive)return;
+  var step=TOUR_STEPS[tourIndex];
+  var hole=$('#tourHole'),card=$('#tourCard');
+  var target=step.sel?document.querySelector(step.sel):null;
+  var vw=window.innerWidth,vh=window.innerHeight;
+  if(target){
+    var r=target.getBoundingClientRect(),pad=8;
+    hole.classList.remove('center');
+    hole.style.left=Math.max(0,r.left-pad)+'px';
+    hole.style.top=Math.max(0,r.top-pad)+'px';
+    hole.style.width=(r.width+pad*2)+'px';
+    hole.style.height=(r.height+pad*2)+'px';
+    var cardW=Math.min(320,vw-32);
+    var spaceBelow=vh-r.bottom;
+    var top=(spaceBelow>220)?(r.bottom+14):Math.max(16,r.top-14-220);
+    var left=Math.min(Math.max(16,r.left),vw-cardW-16);
+    card.style.top=top+'px';card.style.left=left+'px';card.style.transform='none';
+  } else {
+    hole.classList.add('center');
+    hole.style.left='50%';hole.style.top='50%';hole.style.width='0';hole.style.height='0';
+    var cw=Math.min(320,vw-32);
+    card.style.left=Math.max(16,(vw-cw)/2)+'px';
+    card.style.top=Math.max(16,(vh-220)/2)+'px';card.style.transform='none';
+  }
+}
+function tourEnd(markSeen){
+  tourActive=false;
+  $('#tourHole').hidden=true;$('#tourCard').hidden=true;
+  window.removeEventListener('resize',tourReposition);
+  if(markSeen){
+    api('/api/me/intro-seen',{method:'POST'}).then(function(){ if(user)user.showIntro=false; }).catch(function(){});
+  }
+}
+$('#tourNextBtn').addEventListener('click',function(){
+  if(tourIndex>=TOUR_STEPS.length-1){ tourEnd(true); return; }
+  tourIndex++;tourRender();
+});
+$('#tourBackBtn').addEventListener('click',function(){
+  if(tourIndex>0){ tourIndex--;tourRender(); }
+});
+$('#tourSkipBtn').addEventListener('click',function(){ tourEnd(true); });
+$('#introReplayBtn').addEventListener('click',function(){
+  $('#acctDlg').close();
+  setTimeout(startTour,200);
+});
 
 /* ---------------- boot ---------------- */
 var resetToken=new URLSearchParams(location.search).get('reset');

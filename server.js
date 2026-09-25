@@ -41,11 +41,17 @@ function daysLeft(expiry) {
   const e = new Date(expiry + 'T00:00:00');
   return Math.round((e - t) / 86400000);
 }
+// First-login guided tour: bump this when a major new feature ships and the
+// tour content is updated, so everyone (including accounts that already saw
+// an older tour) gets it once more. Just showing/replaying the tour never
+// touches this — only actually finishing/skipping it does.
+const CURRENT_TOUR_VERSION = 1;
 function publicUser(u) {
   return {
     id: u.id, name: u.name, email: u.email, phone: u.phone, plan: u.plan,
     lastLoginAt: u.last_login_at || null, lastLoginDevice: u.last_login_device || null,
     pinEnabled: !!u.pin_enabled,
+    showIntro: (Number(u.intro_seen_version) || 0) < CURRENT_TOUR_VERSION,
   };
 }
 // Sensible default reminder milestones, only used when a document/subscription
@@ -229,6 +235,14 @@ app.post('/api/me/pin/verify', auth, wrap(async (req, res) => {
   if (!u || !u.pin_enabled || !u.pin_hash) return res.json({ ok: true }); // nothing to check
   const ok = await bcrypt.compare(String(pin || ''), u.pin_hash);
   res.json({ ok });
+}));
+
+// First-login guided tour: called once the user finishes or skips it, so it
+// doesn't show again on this tour version. Replaying it from Account never
+// calls this, so replaying never resets the "already seen" state.
+app.post('/api/me/intro-seen', auth, wrap(async (req, res) => {
+  await db.updateUser(req.userId, { intro_seen_version: CURRENT_TOUR_VERSION });
+  res.json({ ok: true });
 }));
 
 /* ---------------- profiles (Family Vault) ---------------- */

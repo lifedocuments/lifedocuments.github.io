@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.lifedocuments.twa",
+        "sha256_cert_fingerprints": ["56:A2:F4:DD:DA:C3:19:7F:41:DC:B0:E0:E1:F5:29:2E:7D:FF:F3:31:6A:78:7D:48:24:27:F6:D4:7E:C9:7B:37"]
+      }
+    }]

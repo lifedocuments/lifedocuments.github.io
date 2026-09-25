@@ -260,6 +260,7 @@ app.post('/api/login', wrap(async (req, res) => {
   if (!u) return res.status(401).json({ error: 'No account with that email.' });
   const ok = await bcrypt.compare(password || '', u.password_hash);
   if (!ok) return res.status(401).json({ error: 'Wrong password.' });
+  if (u.suspended) return res.status(403).json({ error: 'This account has been suspended. Contact support.' });
   const token = jwt.sign({ uid: u.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
   await db.touchLastLogin(u.id, simplifyDevice(req.headers['user-agent'])).catch(e => console.error('Could not record last login for', u.id, e.message));
   res.json({ token, user: publicUser(u) });
@@ -430,6 +431,94 @@ app.get('/api/admin/files/:id', auth, requireAdmin, wrap(async (req, res) => {
   res.send(f.data);
 }));
 
+// Blocks sign-in while keeping the account and all of its data intact — the
+// reversible alternative to deleting someone. The admin's own account can't
+// be suspended (there'd be no way back in).
+app.post('/api/admin/users/:id/suspend', auth, requireAdmin, wrap(async (req, res) => {
+  const target = await db.findUserById(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Not found.' });
+  if (isAdminEmail(target.email)) return res.status(400).json({ error: 'The admin account cannot be suspended.' });
+  const suspended = !!(req.body && req.body.suspended);
+  await db.setUserSuspended(target.id, suspended);
+  res.json({ ok: true, suspended });
+}));
+
+// Permanently removes the account and everything in it (documents, files,
+// subscriptions, profiles, bundles, etc.) — cannot be undone.
+app.delete('/api/admin/users/:id', auth, requireAdmin, wrap(async (req, res) => {
+  const target = await db.findUserById(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Not found.' });
+  if (isAdminEmail(target.email)) return res.status(400).json({ error: 'The admin account cannot be deleted.' });
+  await db.deleteUserCascade(target.id);
+  res.json({ ok: true });
+}));
+
+// CSV export of every customer, for the admin's own records/reporting.
+app.get('/api/admin/users/export/csv', auth, requireAdmin, wrap(async (req, res) => {
+  const users = await db.listUsers({});
+  const byUser = await db.docCountsByUser();
+  function csvCell(v) {
+    const s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  const header = ['Name', 'Email', 'Phone', 'Signed up', 'Last login', 'Documents', 'Suspended'];
+  const lines = [header.join(',')];
+  users.forEach(u => {
+    lines.push([
+      csvCell(u.name), csvCell(u.email), csvCell(u.phone || ''),
+      csvCell(u.created_at ? new Date(Number(u.created_at)).toISOString() : ''),
+      csvCell(u.last_login_at ? new Date(Number(u.last_login_at)).toISOString() : 'Never'),
+      csvCell(byUser[u.id] || 0), csvCell(u.suspended ? 'Yes' : 'No')
+    ].join(','));
+  });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="life-documents-customers.csv"');
+  res.send(lines.join('\r\n'));
+}));
+
+/* ---------------- admin: behavior-based audience suggestions ---------------- */
+// Rule-based, not AI — a handful of segments computed live from existing
+// data, each with a ready-made template the admin can send with one click.
+// Uses a different path than /api/admin/suggestions (that one is the
+// separate user-feedback inbox).
+const AUDIENCE_SEGMENTS = [
+  {
+    key: 'no_documents',
+    title: 'No documents added yet',
+    description: 'Signed up a few days ago but haven’t added a single document — an onboarding nudge helps them get value from the app.',
+    suggestedTitle: 'Add your first document',
+    suggestedBody: 'Add your NID, passport, trade licence, insurance, or any document with an expiry date — you’ll get an email reminder automatically before it lapses. It only takes a minute.'
+  },
+  {
+    key: 'missing_expiry',
+    title: 'Documents without an expiry date',
+    description: 'Has at least one document saved without an expiry date, so it will never trigger a reminder.',
+    suggestedTitle: 'Add expiry dates to get reminders',
+    suggestedBody: 'One or more of your documents doesn’t have an expiry date set yet, so we can’t remind you before it lapses. Open the document and add its expiry date to turn reminders on for it.'
+  },
+  {
+    key: 'dormant',
+    title: 'Inactive for a while',
+    description: 'Account is at least 2 weeks old and hasn’t signed in for 30+ days.',
+    suggestedTitle: 'We miss you at Life Documents',
+    suggestedBody: 'It’s been a while! Your documents and reminders are still here waiting — sign back in to make sure everything’s up to date.'
+  },
+  {
+    key: 'expiring_soon',
+    title: 'Documents expiring within 7 days',
+    description: 'Has a document expiring very soon — useful as a backup nudge alongside the automatic reminder emails.',
+    suggestedTitle: 'A document of yours is expiring soon',
+    suggestedBody: 'One of your documents is expiring within the next 7 days. Please check the app and renew it if needed.'
+  }
+];
+app.get('/api/admin/audience-suggestions', auth, requireAdmin, wrap(async (req, res) => {
+  const results = await Promise.all(AUDIENCE_SEGMENTS.map(async seg => {
+    const ids = await db.segmentUserIds(seg.key);
+    return { ...seg, count: ids.length };
+  }));
+  res.json({ segments: results.filter(s => s.count > 0) });
+}));
+
 /* ---------------- admin broadcasts / announcements ---------------- */
 // The admin writes one title+message and picks, per broadcast, the channel
 // (email, in-app, or both) and the audience (everyone, or one specific
@@ -450,32 +539,52 @@ app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
   if (channel === 'none' && !sendPush) {
     return res.status(400).json({ error: 'Pick at least one channel (email, in-app, or push).' });
   }
-  const audience = b.audience === 'user' ? 'user' : 'all';
+  // A segmentKey (from the admin's Suggestions panel) takes priority over the
+  // normal all/one-user audience picker — the matching user ids are resolved
+  // fresh right now, never reused from an earlier count.
+  const segment = b.segmentKey ? AUDIENCE_SEGMENTS.find(s => s.key === b.segmentKey) : null;
+  const audience = segment ? 'segment' : (b.audience === 'user' ? 'user' : 'all');
 
   let targetUser = null;
+  let segmentUsers = null;
   if (audience === 'user') {
     if (!b.targetUserId) return res.status(400).json({ error: 'Pick a user to target.' });
     targetUser = await db.findUserById(b.targetUserId);
     if (!targetUser) return res.status(404).json({ error: 'That user was not found.' });
+  } else if (audience === 'segment') {
+    const ids = await db.segmentUserIds(segment.key);
+    if (!ids.length) return res.status(400).json({ error: 'Nobody currently matches that segment.' });
+    const all = await db.listAllUsersBasic();
+    const byId = {};
+    all.forEach(u => { byId[u.id] = u; });
+    segmentUsers = ids.map(id => byId[id]).filter(Boolean);
   }
 
   const id = uuid();
   await db.insertBroadcast({
     id, title, body, channel, audience, send_push: sendPush,
     target_user_id: targetUser ? targetUser.id : null,
+    target_user_ids: segmentUsers ? segmentUsers.map(u => u.id) : null,
+    segment_key: segment ? segment.key : null,
     created_at: Date.now()
   });
-  res.json({ id, ok: true });
+  res.json({ id, ok: true, recipientCount: segmentUsers ? segmentUsers.length : (targetUser ? 1 : null) });
 
   // Email and push are both sent after responding (same fire-and-forget
   // pattern as the welcome email on signup) so a large user list can't make
   // the admin's request hang or time out.
   if (channel === 'email' || channel === 'both') {
     (async () => {
-      const recipients = audience === 'user' ? [targetUser] : await db.listAllUsersBasic();
+      const recipients = audience === 'user' ? [targetUser]
+        : audience === 'segment' ? segmentUsers
+        : await db.listAllUsersBasic();
       for (const u of recipients) {
         if (!u || !u.email) continue;
-        try { await sendMail(u.email, title, body); }
+        // Every recipient gets their own name in the greeting — the stored
+        // broadcast body itself stays generic (used as-is for the in-app
+        // inbox and the admin's own history view).
+        const personalized = 'Dear ' + (u.name || 'there') + ',\n\n' + body;
+        try { await sendMail(u.email, title, personalized); }
         catch (e) { console.error('Broadcast email failed for', u.email, e.message); }
       }
     })();
@@ -484,8 +593,8 @@ app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
     (async () => {
       try {
         const appLink = process.env.FRONTEND_URL || '';
-        const subs = audience === 'user'
-          ? await db.listPushSubscriptionsByUser(targetUser.id)
+        const subs = audience === 'user' ? await db.listPushSubscriptionsByUser(targetUser.id)
+          : audience === 'segment' ? (await Promise.all(segmentUsers.map(u => db.listPushSubscriptionsByUser(u.id)))).flat()
           : await db.listAllPushSubscriptions();
         await sendPushToSubscriptions(subs, title, body, appLink);
       } catch (e) {

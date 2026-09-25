@@ -337,6 +337,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       <button id="lockBtn" class="btn" type="button" data-i18n="lock_btn">Sign out</button>
     </div>
   </header>
+  <button type="button" id="sanyBtn" aria-label="Sany" style="position:fixed;right:18px;bottom:18px;z-index:40;border-radius:999px;padding:12px 20px;border-color:var(--brand);background:var(--brand);color:var(--brand-fg);font-weight:700;box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer">💬 Sany</button>
   <main>
     <div class="viewswitch" id="viewSwitch" role="group" aria-label="Switch view">
       <button type="button" data-view="docs" aria-pressed="true" data-i18n="view_documents">Documents</button>
@@ -554,6 +555,19 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <p id="renewMsg" class="msg" role="alert"></p>
   </div>
   <div class="df"><button class="btn primary" type="button" id="renewSaveBtn" data-i18n="renew_save_btn">Save renewal</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
+</dialog>
+
+<dialog id="sanyDlg" aria-labelledby="sanyTitle">
+  <div class="dh"><h2 id="sanyTitle">Sany</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="sany_lede">Ask a quick question about using Life Documents — how to add a document, set up App Lock, and more.</p>
+    <div id="sanyLog" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="sanyInput" class="input" style="flex:1" data-i18n-ph="sany_placeholder" maxlength="200">
+      <button type="button" class="btn primary" id="sanySendBtn" data-i18n="sany_send_btn">Send</button>
+    </div>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
 
 <dialog id="profilesDlg" aria-labelledby="profilesTitle">
@@ -886,7 +900,11 @@ var STR = {
     notify_on:'Notifications are ON for this device.', notify_off:'Notifications are currently OFF for this device.',
     notify_enabling:'Enabling…', notify_permission_denied:'Notification permission was not granted.',
     notify_not_set_up:'Push notifications are not set up on the server yet.', notify_could_not_enable:'Could not enable notifications.',
-    toast_notifications_enabled:'Notifications enabled'
+    toast_notifications_enabled:'Notifications enabled',
+    sany_lede:'Ask a quick question about using Life Documents — how to add a document, set up App Lock, and more.',
+    sany_placeholder:'Type your question…', sany_send_btn:'Send',
+    sany_greeting:'Hi, I’m Sany! Ask me how to do something in the app — like adding a document, setting up App Lock, or enabling notifications.',
+    sany_fallback:'I don’t have an answer for that yet. Try asking about adding a document, renewing one, subscriptions, App Lock, notifications, or your account — or send a suggestion from Account and the admin will help.'
   },
   bn: {
     si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
@@ -1015,7 +1033,11 @@ var STR = {
     notify_on:'এই ডিভাইসে নোটিফিকেশন চালু আছে।', notify_off:'এই ডিভাইসে নোটিফিকেশন এখন বন্ধ আছে।',
     notify_enabling:'চালু করা হচ্ছে…', notify_permission_denied:'নোটিফিকেশনের অনুমতি দেওয়া হয়নি।',
     notify_not_set_up:'সার্ভারে পুশ নোটিফিকেশন এখনো সেট আপ করা হয়নি।', notify_could_not_enable:'নোটিফিকেশন চালু করা যায়নি।',
-    toast_notifications_enabled:'নোটিফিকেশন চালু হয়েছে'
+    toast_notifications_enabled:'নোটিফিকেশন চালু হয়েছে',
+    sany_lede:'Life Documents ব্যবহার নিয়ে দ্রুত কোনো প্রশ্ন করুন — ডকুমেন্ট যোগ করা, App Lock সেট করা, ইত্যাদি।',
+    sany_placeholder:'আপনার প্রশ্ন লিখুন…', sany_send_btn:'পাঠান',
+    sany_greeting:'হাই, আমি Sany! অ্যাপে কীভাবে কিছু করবেন জিজ্ঞাসা করুন — যেমন ডকুমেন্ট যোগ করা, App Lock সেট করা, বা নোটিফিকেশন চালু করা।',
+    sany_fallback:'এই বিষয়ে এখনো আমার উত্তর নেই। ডকুমেন্ট যোগ করা, নবায়ন, সাবস্ক্রিপশন, App Lock, নোটিফিকেশন, বা অ্যাকাউন্ট নিয়ে জিজ্ঞাসা করে দেখুন — অথবা Account থেকে একটা suggestion পাঠান, অ্যাডমিন সাহায্য করবেন।'
   }
 };
 var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
@@ -1099,7 +1121,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -1269,7 +1291,9 @@ function adminShowUsers(){
     '<div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
       '<button type="button" class="btn small" id="adminNotifyBtn">🔔 Notifications</button>'+
       '<button type="button" class="btn small" id="adminSuggestBtn">💡 Suggestions</button>'+
+      '<button type="button" class="btn small" id="adminAudienceBtn">🎯 Audience insights</button>'+
       '<button type="button" class="btn small" id="adminBroadcastBtn">📢 Send Announcement</button>'+
+      '<button type="button" class="btn small" id="adminExportBtn">⬇ Export customers (CSV)</button>'+
     '</div>'+
     '<div class="admin-stats" id="adminStats">'+
       '<div class="admin-stat"><b>—</b><span>Total users</span></div>'+
@@ -1303,6 +1327,16 @@ function adminShowUsers(){
   $('#adminBroadcastBtn').addEventListener('click',adminShowBroadcast);
   $('#adminSuggestBtn').addEventListener('click',adminShowSuggestions);
   $('#adminNotifyBtn').addEventListener('click',adminShowNotifications);
+  $('#adminAudienceBtn').addEventListener('click',adminShowAudienceSuggestions);
+  $('#adminExportBtn').addEventListener('click',function(){
+    fetch(API_BASE.replace(/\/$/,'')+'/api/admin/users/export/csv',{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
+      if(!r.ok)throw new Error();return r.blob();
+    }).then(function(b){
+      var url=URL.createObjectURL(b);
+      var a=document.createElement('a');a.href=url;a.download='life-documents-customers.csv';document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    }).catch(function(){toast('Could not export customers');});
+  });
 
   $('#adminSearch').addEventListener('input',function(e){
     adminQuery=e.target.value;
@@ -1326,14 +1360,46 @@ function adminLoadUsers(){
     $('#adminCount').textContent=plural(data.users.length,'user');
     if(!data.users.length){ list.innerHTML='<p class="msg info">No users match this search.</p>'; return; }
     list.innerHTML='<ul class="admin-list">'+data.users.map(function(u){
-      return '<li><button type="button" class="admin-row" data-user="'+esc(u.id)+'">'+
-        '<span><span class="nm">'+esc(u.name)+'</span><br>'+
+      var suspendedTag=u.suspended?' <span style="color:var(--red);font-weight:700">· Suspended</span>':'';
+      return '<li style="display:flex;align-items:center;gap:8px">'+
+        '<button type="button" class="admin-row" data-user="'+esc(u.id)+'" style="flex:1;min-width:0">'+
+        '<span><span class="nm">'+esc(u.name)+'</span>'+suspendedTag+'<br>'+
         '<span class="sub">'+esc(u.email)+(u.phone?' · '+esc(u.phone):'')+'</span><br>'+
         '<span class="sub">Last sign-in: '+esc(adminDateTime(u.last_login_at))+' · Joined '+esc(adminDate(u.created_at))+'</span></span>'+
-        '<span class="sub">'+plural(u.documentCount,'document')+'</span></button></li>';
+        '<span class="sub">'+plural(u.documentCount,'document')+'</span></button>'+
+        '<span style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'+
+        '<button type="button" class="btn small" data-suspend-user="'+esc(u.id)+'" data-suspended="'+(u.suspended?'1':'0')+'">'+(u.suspended?'Unsuspend':'Suspend')+'</button>'+
+        '<button type="button" class="btn small danger" data-delete-user="'+esc(u.id)+'" data-name="'+esc(u.name)+'">Delete</button>'+
+        '</span></li>';
     }).join('')+'</ul>';
     list.querySelectorAll('[data-user]').forEach(function(b){
       b.addEventListener('click',function(){ adminShowUserDocs(b.dataset.user); });
+    });
+    list.querySelectorAll('[data-suspend-user]').forEach(function(b){
+      b.addEventListener('click',function(e){
+        e.stopPropagation();
+        var willSuspend=b.dataset.suspended!=='1';
+        b.disabled=true;
+        api('/api/admin/users/'+b.dataset.suspendUser+'/suspend',{method:'POST',body:JSON.stringify({suspended:willSuspend})}).then(function(){
+          toast(willSuspend?'User suspended':'User unsuspended');
+          adminLoadUsers();
+        }).catch(function(e){ toast(e.error||'Could not update this user'); b.disabled=false; });
+      });
+    });
+    list.querySelectorAll('[data-delete-user]').forEach(function(b){
+      b.addEventListener('click',function(e){
+        e.stopPropagation();
+        if(b.dataset.armed==='1'){
+          b.disabled=true;
+          api('/api/admin/users/'+b.dataset.deleteUser,{method:'DELETE'}).then(function(){
+            toast('User deleted');
+            adminLoadUsers();
+          }).catch(function(e){ toast(e.error||'Could not delete this user'); b.disabled=false; });
+        } else {
+          b.dataset.armed='1';b.textContent='Confirm delete';b.classList.add('armed');
+          setTimeout(function(){ if(b&&b.dataset)  { b.dataset.armed='0';b.textContent='Delete';b.classList.remove('armed'); } },4000);
+        }
+      });
     });
   }).catch(function(e){ if($('#adminUserList')) list.innerHTML='<p class="msg">'+esc(e.error||'Could not load users.')+'</p>'; });
 }
@@ -1372,12 +1438,22 @@ var BROADCAST_PRESETS=[
   {title:'Scheduled maintenance', body:'We’ll be performing scheduled maintenance soon. The app may be briefly unavailable during this time. Thanks for your patience.'},
   {title:'New feature announcement', body:'We just added a new feature to Life Documents! Open the app to check it out.'},
   {title:'Please check your documents', body:'A quick reminder to review your saved documents and make sure the expiry dates are still accurate — especially anything you’ve recently renewed.'},
-  {title:'General update', body:'We’ve made some improvements to Life Documents. Open the app any time to see what’s new.'}
+  {title:'General update', body:'We’ve made some improvements to Life Documents. Open the app any time to see what’s new.'},
+  {title:'Welcome back offer', body:'It’s been a while since we’ve seen you! Come back and check on your documents — we’ve kept everything just as you left it.'},
+  {title:'Add your first document', body:'You haven’t added a document yet — add your NID, passport, trade licence, or insurance to get started, and you’ll get an email reminder automatically before it expires.'},
+  {title:'Set expiry dates reminder', body:'A few of your documents don’t have an expiry date set, so they won’t trigger a reminder. Open each one and add its expiry date to stay covered.'},
+  {title:'Try the Renewed button', body:'Did you know? When you renew a document, tap the “Renewed” button inside it to update the expiry date in one step — your old details stay saved in its history.'},
+  {title:'Invite friends & family', body:'Know someone who could use Life Documents? Use the “Share with Friends & Family” button in your Account page to invite them.'},
+  {title:'Enable phone notifications', body:'Turn on push notifications from your Account page so you never miss an announcement or reminder, even when the app is closed.'},
+  {title:'Holiday/office notice', body:'A quick notice: our support response may be a little slower than usual over the next few days. Thanks for your patience!'},
+  {title:'Security reminder', body:'For your account’s safety, please use a strong, unique password and turn on App Lock (PIN) from your Account page.'}
 ];
-var bcTargetUserId=null, bcSearchTimer=null;
-function adminShowBroadcast(){
+var bcTargetUserId=null, bcSearchTimer=null, bcSegmentKey=null, bcSegmentInfo=null;
+function adminShowBroadcast(prefill){
   $('#adminTitle').textContent='Admin — announcements';
   bcTargetUserId=null;
+  bcSegmentKey=prefill&&prefill.segmentKey?prefill.segmentKey:null;
+  bcSegmentInfo=prefill&&prefill.segmentKey?{title:prefill.segmentTitle,count:prefill.segmentCount}:null;
   $('#adminBody').innerHTML=
     '<button type="button" class="btn small admin-back" id="adminBackFromBroadcast">&larr; All users</button>'+
     '<h3 style="margin:16px 0 6px">Send an announcement</h3>'+
@@ -1395,10 +1471,11 @@ function adminShowBroadcast(){
         '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcInapp" checked> In-app</label>'+
         '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcPush"> Push (phone notification)</label>'+
       '</div></label>'+
-      '<label class="field"><span>Audience</span><select id="bcAudience" class="input">'+
+      '<label class="field" id="bcAudienceField"><span>Audience</span><select id="bcAudience" class="input">'+
         '<option value="all">All users</option><option value="user">Specific user…</option>'+
       '</select></label>'+
     '</div>'+
+    '<p id="bcSegmentNote" class="msg info" style="display:none"></p>'+
     '<div id="bcTargetRow" hidden style="margin-top:10px">'+
       '<label class="field"><span>Find user (name, email, or phone)</span><input id="bcTargetSearch" class="input" placeholder="Type to search…"></label>'+
       '<div id="bcTargetResults"></div>'+
@@ -1408,6 +1485,21 @@ function adminShowBroadcast(){
     '<div class="df"><button class="btn primary" type="button" id="bcSendBtn">Send announcement</button></div>'+
     '<h3 style="margin:22px 0 6px">Recent announcements</h3>'+
     '<div id="bcHistory"><p class="msg info">Loading…</p></div>';
+
+  if(prefill){ $('#bcTitle').value=prefill.title||''; $('#bcBody').value=prefill.body||''; }
+  function renderSegmentNote(){
+    var note=$('#bcSegmentNote'), field=$('#bcAudienceField');
+    if(bcSegmentKey&&bcSegmentInfo){
+      note.style.display='';
+      note.innerHTML='Sending to segment: <b>'+esc(bcSegmentInfo.title)+'</b> ('+plural(bcSegmentInfo.count,'user')+') — <a href="#" id="bcClearSegment">use All users / a specific user instead</a>';
+      field.style.display='none';
+      $('#bcTargetRow').hidden=true;
+      var clr=$('#bcClearSegment'); if(clr) clr.addEventListener('click',function(e){ e.preventDefault(); bcSegmentKey=null;bcSegmentInfo=null; renderSegmentNote(); });
+    } else {
+      note.style.display='none'; field.style.display='';
+    }
+  }
+  renderSegmentNote();
 
   $('#adminBackFromBroadcast').addEventListener('click',adminShowUsers);
 
@@ -1454,13 +1546,17 @@ function adminShowBroadcast(){
     msg.textContent='';
     if(!title||!body){ msg.textContent='Write a title and a message.'; return; }
     if(!wantEmail&&!wantInapp&&!wantPush){ msg.textContent='Pick at least one channel (email, in-app, or push).'; return; }
-    if(audience==='user'&&!bcTargetUserId){ msg.textContent='Search for and select a user to target.'; return; }
+    if(!bcSegmentKey&&audience==='user'&&!bcTargetUserId){ msg.textContent='Search for and select a user to target.'; return; }
     var channel = wantEmail&&wantInapp ? 'both' : (wantEmail ? 'email' : (wantInapp ? 'inapp' : 'none'));
     btn.disabled=true;btn.textContent='Sending…';
-    api('/api/admin/broadcasts',{method:'POST',body:JSON.stringify({title:title,body:body,channel:channel,sendPush:wantPush,audience:audience,targetUserId:audience==='user'?bcTargetUserId:null})}).then(function(){
+    var payload={title:title,body:body,channel:channel,sendPush:wantPush};
+    if(bcSegmentKey){ payload.segmentKey=bcSegmentKey; }
+    else { payload.audience=audience; payload.targetUserId=audience==='user'?bcTargetUserId:null; }
+    api('/api/admin/broadcasts',{method:'POST',body:JSON.stringify(payload)}).then(function(){
       toast('Announcement sent');
       $('#bcTitle').value='';$('#bcBody').value='';$('#bcPreset').value='';
-      adminLoadBroadcastHistory();
+      bcSegmentKey=null;bcSegmentInfo=null;
+      adminShowBroadcast();
     }).catch(function(e){ msg.textContent=e.error||'Could not send this announcement.'; }).then(function(){ if($('#bcSendBtn')){$('#bcSendBtn').disabled=false;$('#bcSendBtn').textContent='Send announcement';} });
   });
 
@@ -1473,7 +1569,9 @@ function adminLoadBroadcastHistory(){
     var list=data.broadcasts||[];
     if(!list.length){ $('#bcHistory').innerHTML='<p class="msg info">No announcements sent yet.</p>'; return; }
     $('#bcHistory').innerHTML='<ul class="admin-list">'+list.map(function(b){
-      var who = b.audience==='user' ? ('to '+(b.target_name||b.target_email||'one user')) : 'to all users';
+      var who = b.audience==='user' ? ('to '+(b.target_name||b.target_email||'one user'))
+        : b.audience==='segment' ? ('to segment "'+(b.segment_key||'?')+'" ('+plural((b.target_user_ids||[]).length,'user')+')')
+        : 'to all users';
       var chanParts = [];
       if(b.channel==='both'){ chanParts.push('Email'); chanParts.push('In-app'); }
       else if(b.channel==='email'){ chanParts.push('Email'); }
@@ -1519,6 +1617,42 @@ function adminLoadSuggestions(){
       });
     });
   }).catch(function(){ if($('#sgList'))$('#sgList').innerHTML='<p class="msg">Could not load suggestions.</p>'; });
+}
+
+/* ---------------- Admin: behavior-based audience suggestions ---------------- */
+// Rule-based (not AI): a handful of segments computed live from signup date,
+// login activity, and document data, each with a ready-made message —
+// "Use this template" jumps straight to Send Announcement, pre-filled and
+// targeted at exactly that segment (resolved fresh again at send time).
+function adminShowAudienceSuggestions(){
+  $('#adminTitle').textContent='Admin — audience insights';
+  $('#adminBody').innerHTML=
+    '<button type="button" class="btn small admin-back" id="adminBackFromAudience">&larr; All users</button>'+
+    '<h3 style="margin:16px 0 6px">Suggested notifications</h3>'+
+    '<p class="msg info">Based on signup date, login activity, and document data — pick one and send it to exactly that group.</p>'+
+    '<div id="audList"><p class="msg info">Loading…</p></div>';
+  $('#adminBackFromAudience').addEventListener('click',adminShowUsers);
+  api('/api/admin/audience-suggestions').then(function(data){
+    if(!$('#audList'))return;
+    var segs=data.segments||[];
+    if(!segs.length){ $('#audList').innerHTML='<p class="msg info">No suggestions right now — nobody currently matches any of the behavior segments we track.</p>'; return; }
+    $('#audList').innerHTML=segs.map(function(s){
+      return '<div style="padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px">'+
+        '<b>'+esc(s.title)+'</b> <span class="sub">('+plural(s.count,'user')+')</span>'+
+        '<p class="sub" style="margin:6px 0">'+esc(s.description)+'</p>'+
+        '<p style="margin:6px 0;white-space:pre-wrap"><i>"'+esc(s.suggestedTitle)+' — '+esc(s.suggestedBody)+'"</i></p>'+
+        '<button type="button" class="btn small primary" data-use-segment="'+esc(s.key)+'" data-title="'+esc(s.suggestedTitle)+'" data-body="'+esc(s.suggestedBody)+'" data-seg-title="'+esc(s.title)+'" data-count="'+s.count+'">Use this template</button>'+
+      '</div>';
+    }).join('');
+    $('#audList').querySelectorAll('[data-use-segment]').forEach(function(b){
+      b.addEventListener('click',function(){
+        adminShowBroadcast({
+          title:b.dataset.title, body:b.dataset.body,
+          segmentKey:b.dataset.useSegment, segmentTitle:b.dataset.segTitle, segmentCount:Number(b.dataset.count)
+        });
+      });
+    });
+  }).catch(function(){ if($('#audList'))$('#audList').innerHTML='<p class="msg">Could not load suggestions.</p>'; });
 }
 
 /* ---------------- Push notifications (shared: admin panel + Account) ---------------- */
@@ -2721,11 +2855,89 @@ function openSubDetail(id){
   var dlg=$('#subViewDlg');if(!dlg.open)dlg.showModal();
 }
 
+/* ---------------- Sany: free, rule-based FAQ helper (no external API) ---------------- */
+// Plain keyword matching against a small bilingual knowledge base — good
+// enough for "how do I do X" questions about this app, and costs nothing to
+// run since it never calls any AI service.
+var SANY_FAQ=[
+  {kw:['add','document','new','upload','nid','passport','যোগ','ডকুমেন্ট','নতুন'],
+    en:'Tap "Add document" at the top, fill in the title and (if it has one) an expiry date, then save. You can attach a photo or PDF too.',
+    bn:'ওপরে "Add document" বাটনে চাপুন, নাম আর (থাকলে) মেয়াদ শেষের তারিখ দিয়ে সেভ করুন। চাইলে ছবি বা PDF-ও যুক্ত করতে পারবেন।'},
+  {kw:['renew','renewed','expire','expiry','extend','নবায়ন','মেয়াদ'],
+    en:'Open the document and tap the "Renewed" button, then enter the new expiry date. Your old details are kept in that document’s history automatically.',
+    bn:'ডকুমেন্টটি খুলে "Renewed" বাটনে চাপুন, তারপর নতুন মেয়াদ শেষের তারিখ দিন। পুরনো তথ্য স্বয়ংক্রিয়ভাবে সেই ডকুমেন্টের history-তে থেকে যাবে।'},
+  {kw:['subscription','bill','payment','recurring','netflix','সাবস্ক্রিপশন','বিল'],
+    en:'Switch to the "Subscriptions" tab and tap "Add your first subscription" — set the amount, how often it recurs, and the next due date.',
+    bn:'"Subscriptions" ট্যাবে গিয়ে "Add your first subscription" চাপুন — পরিমাণ, কতদিন পরপর, আর পরবর্তী তারিখ দিন।'},
+  {kw:['pin','lock','applock','security','password','পিন','লক','পাসওয়ার্ড'],
+    en:'Go to Account → App Lock (PIN) and tap "Turn on PIN lock". You’ll need your current password to set it up.',
+    bn:'Account → App Lock (PIN) এ গিয়ে "Turn on PIN lock" চাপুন। এটা চালু করতে আপনার বর্তমান পাসওয়ার্ড লাগবে।'},
+  {kw:['language','bangla','bengali','english','ভাষা','বাংলা'],
+    en:'Open Account and tap the language button at the top — it switches between English and বাংলা instantly.',
+    bn:'Account খুলে ওপরে ভাষার বাটনে চাপুন — এটা সাথে সাথে English আর বাংলার মধ্যে পাল্টে যাবে।'},
+  {kw:['notification','push','alert','notify','নোটিফিকেশন'],
+    en:'Open Account and tap "Enable notifications" under Push notifications — your browser will ask permission once.',
+    bn:'Account খুলে "Push notifications" অংশে "Enable notifications" চাপুন — আপনার ব্রাউজার একবার অনুমতি চাইবে।'},
+  {kw:['share','friend','family','invite','শেয়ার','বন্ধু'],
+    en:'Open Account and tap "Share with Friends & Family" to send an invite link.',
+    bn:'Account খুলে "Share with Friends & Family" চাপুন, একটা invite লিংক পাঠাতে পারবেন।'},
+  {kw:['suggest','feedback','idea','problem','bug','পরামর্শ','সমস্যা'],
+    en:'Open Account and tap "Send a suggestion" — you can write your idea or problem and attach a photo or PDF.',
+    bn:'Account খুলে "Send a suggestion" চাপুন — আপনার মতামত বা সমস্যা লিখে ছবি/PDF যুক্ত করতে পারবেন।'},
+  {kw:['forgot','reset','password','login','sign in','ভুলে','পাসওয়ার্ড'],
+    en:'On the sign-in screen, tap "Forgot password?" and enter your email — you’ll get a reset link within a minute.',
+    bn:'সাইন-ইন স্ক্রিনে "Forgot password?" চাপুন, আপনার ইমেইল দিন — এক মিনিটের মধ্যে reset link পাবেন।'},
+  {kw:['reminder','email','when','how often','remind','রিমাইন্ডার','কবে'],
+    en:'You get an automatic email reminder before a document’s expiry (by default at 180/90/30/7/1 days before) — you can customize these milestones per document.',
+    bn:'মেয়াদ শেষ হওয়ার আগে স্বয়ংক্রিয়ভাবে ইমেইল রিমাইন্ডার পাবেন (ডিফল্ট 180/90/30/7/1 দিন আগে) — প্রতিটি ডকুমেন্টে চাইলে এটা বদলাতে পারবেন।'},
+  {kw:['family','profile','vault','member','পরিবার','প্রোফাইল'],
+    en:'Tap "Family" to add named profiles (like a spouse or child) so documents can be tagged and organized by person.',
+    bn:'"Family" চাপুন, নাম দিয়ে প্রোফাইল যোগ করুন (যেমন স্ত্রী/সন্তান), যাতে ডকুমেন্ট ব্যক্তি অনুযায়ী গুছিয়ে রাখা যায়।'},
+  {kw:['bundle','group','organize','category','বান্ডিল','গ্রুপ'],
+    en:'Bundles let you group documents together for viewing (e.g. "Travel Documents") — open a document’s edit screen and add it to a bundle, or manage bundles from the Documents view.',
+    bn:'Bundle দিয়ে ডকুমেন্ট একসাথে গ্রুপ করে দেখতে পারবেন (যেমন "Travel Documents") — ডকুমেন্ট এডিট থেকে বা Documents ভিউ থেকে bundle-এ যোগ করুন।'}
+];
+function sanyAnswer(q){
+  var text=String(q||'').toLowerCase();
+  var best=null,bestScore=0;
+  SANY_FAQ.forEach(function(entry){
+    var score=0;
+    entry.kw.forEach(function(k){ if(text.indexOf(k.toLowerCase())!==-1)score++; });
+    if(score>bestScore){bestScore=score;best=entry;}
+  });
+  if(!best) return t('sany_fallback');
+  return LANG==='bn'?best.bn:best.en;
+}
+function sanyAppendMsg(who,text){
+  var log=$('#sanyLog'); if(!log)return;
+  var row=document.createElement('div');
+  row.style.cssText='align-self:'+(who==='user'?'flex-end':'flex-start')+';max-width:85%;padding:8px 12px;border-radius:12px;white-space:pre-wrap;'+
+    (who==='user'?'background:var(--brand);color:var(--brand-fg)':'background:var(--surface);border:1px solid var(--line)');
+  row.textContent=text;
+  log.appendChild(row);
+  log.scrollTop=log.scrollHeight;
+}
+var sanyGreeted=false;
+$('#sanyBtn').addEventListener('click',function(){
+  $('#sanyDlg').showModal();
+  if(!sanyGreeted){ sanyAppendMsg('sany',t('sany_greeting')); sanyGreeted=true; }
+  setTimeout(function(){var i=$('#sanyInput');if(i)i.focus();},30);
+});
+function sanySend(){
+  var input=$('#sanyInput'); if(!input)return;
+  var q=input.value.trim(); if(!q)return;
+  sanyAppendMsg('user',q);
+  input.value='';
+  setTimeout(function(){ sanyAppendMsg('sany',sanyAnswer(q)); },250);
+}
+$('#sanySendBtn').addEventListener('click',sanySend);
+$('#sanyInput').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sanySend(); } });
+
 document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 

@@ -40,6 +40,9 @@ async function init() {
     -- (e.g. when a major new feature ships) makes it resurface once for
     -- everyone, without resetting anything else about the account.
     ALTER TABLE users ADD COLUMN IF NOT EXISTS intro_seen_version INTEGER NOT NULL DEFAULT 0;
+    -- Admin can suspend an account (blocks sign-in, keeps all their data)
+    -- as a lighter-weight alternative to permanently deleting it.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended BOOLEAN NOT NULL DEFAULT false;
     -- Family Vault: named profiles (Me, Wife, Children, Parents, ...) that
     -- documents and subscriptions can optionally be tagged with. Everything
     -- still lives under one account/login — this is just a grouping tag.
@@ -166,6 +169,11 @@ async function init() {
     -- added after the table already existed in production, so it needs an
     -- explicit migration for databases created before this column existed.
     ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS send_push BOOLEAN NOT NULL DEFAULT false;
+    -- audience='segment': a behavior-based group (e.g. "no documents yet")
+    -- computed fresh at send time from admin Suggestions. target_user_ids is
+    -- a snapshot of exactly who it went to, for history/in-app-inbox lookup.
+    ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS target_user_ids TEXT[];
+    ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS segment_key TEXT;
     CREATE INDEX IF NOT EXISTS idx_broadcasts_created ON broadcasts(created_at);
     CREATE TABLE IF NOT EXISTS broadcast_reads(
       broadcast_id TEXT NOT NULL REFERENCES broadcasts(id),
@@ -243,18 +251,56 @@ module.exports = {
     if (q) {
       const like = `%${String(q).toLowerCase()}%`;
       const r = await pool.query(
-        `SELECT id,name,email,phone,created_at,last_login_at FROM users
+        `SELECT id,name,email,phone,created_at,last_login_at,suspended FROM users
          WHERE LOWER(name) LIKE $1 OR LOWER(email) LIKE $1 OR LOWER(COALESCE(phone,'')) LIKE $1
          ORDER BY created_at DESC`,
         [like]
       );
       return r.rows;
     }
-    const r = await pool.query('SELECT id,name,email,phone,created_at,last_login_at FROM users ORDER BY created_at DESC');
+    const r = await pool.query('SELECT id,name,email,phone,created_at,last_login_at,suspended FROM users ORDER BY created_at DESC');
     return r.rows;
   },
   async touchLastLogin(id, device) {
     await pool.query('UPDATE users SET last_login_at=$2, last_login_device=$3 WHERE id=$1', [id, Date.now(), device || null]);
+  },
+  async setUserSuspended(id, suspended) {
+    await pool.query('UPDATE users SET suspended=$2 WHERE id=$1', [id, !!suspended]);
+  },
+  // Permanently removes an account and every trace of their data —
+  // documents, files, subscriptions, profiles, bundles, push subscriptions,
+  // suggestions — in one transaction. Broadcasts they were the specific
+  // target of are kept (for the admin's own history) but detached from the
+  // now-gone account instead of being deleted themselves.
+  async deleteUserCascade(id) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `DELETE FROM bundle_items WHERE document_id IN (SELECT id FROM documents WHERE user_id=$1)
+           OR bundle_id IN (SELECT id FROM bundles WHERE user_id=$1)`,
+        [id]
+      );
+      await client.query('DELETE FROM bundles WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM files WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM notified WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM documents WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM sub_notified WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM subscriptions WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM profiles WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM push_subscriptions WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM suggestions WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM broadcast_reads WHERE user_id=$1', [id]);
+      await client.query('UPDATE broadcasts SET target_user_id=NULL WHERE target_user_id=$1', [id]);
+      await client.query('UPDATE broadcasts SET target_user_ids=array_remove(target_user_ids,$1) WHERE $1=ANY(target_user_ids)', [id]);
+      await client.query('DELETE FROM users WHERE id=$1', [id]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   },
   // Everyone, with how many documents they have and how many of those are
   // missing an expiry date — enough to pick which weekly follow-up email
@@ -297,6 +343,49 @@ module.exports = {
       expiringThisWeek: expiry.rows[0].expiring_this_week,
       overdue: expiry.rows[0].overdue,
     };
+  },
+  // Rule-based user-behavior segments for the admin's "Suggestions" panel —
+  // each just returns the user ids currently matching it, computed fresh
+  // every time (never stored), so a broadcast sent "to this segment" always
+  // reaches whoever qualifies right now.
+  async segmentUserIds(key) {
+    const DAY = 24 * 60 * 60 * 1000;
+    if (key === 'no_documents') {
+      const r = await pool.query(`
+        SELECT u.id FROM users u
+        LEFT JOIN documents d ON d.user_id = u.id
+        WHERE u.created_at < $1 AND u.suspended = false
+        GROUP BY u.id
+        HAVING COUNT(d.id) = 0
+      `, [Date.now() - 3 * DAY]);
+      return r.rows.map(x => x.id);
+    }
+    if (key === 'missing_expiry') {
+      const r = await pool.query(`
+        SELECT DISTINCT u.id FROM users u
+        JOIN documents d ON d.user_id = u.id
+        WHERE (d.expiry IS NULL OR d.expiry = '') AND u.suspended = false
+      `);
+      return r.rows.map(x => x.id);
+    }
+    if (key === 'dormant') {
+      const r = await pool.query(`
+        SELECT u.id FROM users u
+        WHERE u.created_at < $1 AND u.suspended = false
+          AND (u.last_login_at IS NULL OR u.last_login_at < $2)
+      `, [Date.now() - 14 * DAY, Date.now() - 30 * DAY]);
+      return r.rows.map(x => x.id);
+    }
+    if (key === 'expiring_soon') {
+      const r = await pool.query(`
+        SELECT DISTINCT u.id FROM users u
+        JOIN documents d ON d.user_id = u.id
+        WHERE u.suspended = false AND d.expiry ~ '^\\d{4}-\\d{2}-\\d{2}$'
+          AND d.expiry::date >= CURRENT_DATE AND d.expiry::date <= CURRENT_DATE + INTERVAL '7 days'
+      `);
+      return r.rows.map(x => x.id);
+    }
+    return [];
   },
 
   // ---- documents ----
@@ -518,9 +607,10 @@ module.exports = {
   // ---- admin broadcasts / announcements ----
   async insertBroadcast(b) {
     await pool.query(
-      `INSERT INTO broadcasts(id,title,body,channel,audience,target_user_id,send_push,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [b.id, b.title, b.body, b.channel, b.audience, b.target_user_id || null, !!b.send_push, b.created_at]
+      `INSERT INTO broadcasts(id,title,body,channel,audience,target_user_id,send_push,created_at,target_user_ids,segment_key)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [b.id, b.title, b.body, b.channel, b.audience, b.target_user_id || null, !!b.send_push, b.created_at,
+        b.target_user_ids || null, b.segment_key || null]
     );
   },
   async listBroadcasts(limit) {
@@ -546,7 +636,7 @@ module.exports = {
        FROM broadcasts b
        LEFT JOIN broadcast_reads br ON br.broadcast_id = b.id AND br.user_id = $1
        WHERE (b.channel = 'inapp' OR b.channel = 'both')
-         AND (b.audience = 'all' OR b.target_user_id = $1)
+         AND (b.audience = 'all' OR b.target_user_id = $1 OR $1 = ANY(b.target_user_ids))
        ORDER BY b.created_at DESC LIMIT 50`,
       [userId]
     );
@@ -564,7 +654,7 @@ module.exports = {
       `INSERT INTO broadcast_reads(broadcast_id,user_id,read_at)
        SELECT b.id, $1, $2 FROM broadcasts b
        WHERE (b.channel = 'inapp' OR b.channel = 'both')
-         AND (b.audience = 'all' OR b.target_user_id = $1)
+         AND (b.audience = 'all' OR b.target_user_id = $1 OR $1 = ANY(b.target_user_ids))
        ON CONFLICT (broadcast_id,user_id) DO NOTHING`,
       [userId, ts || Date.now()]
     );

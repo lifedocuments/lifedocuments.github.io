@@ -98,7 +98,17 @@ main{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 64px}
 .hero .btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.55);color:inherit}
 .hero[data-tone="amber"] .btn{background:rgba(0,0,0,.08);border-color:rgba(0,0,0,.4)}
 .hero .btn:hover{background:rgba(255,255,255,.28)}
+.life-alert{border:1px solid var(--brand);border-radius:14px;padding:16px 18px;margin:0 0 18px;background:var(--surface)}
+.life-alert h3{margin:0 0 10px;font-size:16px}
+.life-alert ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.life-alert li{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.life-alert li button{background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.life-alert li .when{color:var(--muted);font-size:14px;white-space:nowrap}
 .nudge{border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 18px;background:var(--surface)}
+.nudge-list{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.nudge-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;color:inherit;cursor:pointer}
+.nudge-item:hover{border-color:var(--muted)}
+.nudge-item .box{width:18px;height:18px;border-radius:5px;border:2px solid var(--muted);flex:0 0 auto}
 .nudge p{margin:0 0 10px;font-size:15px}
 .nudge .cta{display:flex;gap:10px;flex-wrap:wrap}
 .hero[data-tone="amber"] .btn:hover{background:rgba(0,0,0,.16)}
@@ -307,7 +317,6 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <div class="right">
       <button id="adminBtn" class="btn" type="button" hidden>Admin</button>
       <button id="familyBtn" class="btn" type="button" data-i18n="family_btn">Family</button>
-      <button id="langBtn" class="btn" type="button">বাংলা</button>
       <button id="acctBtn" class="btn" type="button" data-i18n="acct_btn">Account</button>
       <button id="addBtn" class="btn primary" type="button" data-i18n="add_btn">Add document</button>
       <button id="lockBtn" class="btn" type="button" data-i18n="lock_btn">Sign out</button>
@@ -320,6 +329,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     </div>
 
     <div id="docsView">
+      <div id="lifeAlert" class="life-alert" hidden></div>
       <div id="nudge" class="nudge" hidden></div>
       <section class="health" id="healthDash" aria-live="polite"></section>
       <section id="hero" class="hero" aria-live="polite"></section>
@@ -329,7 +339,9 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       </div>
       <div class="bar" id="filterBar2">
         <div class="tabs" id="catTabs" role="group" aria-label="Filter by category"></div>
+        <select id="bundleFilter" class="input" style="max-width:200px"></select>
         <select id="profileFilter" class="input" style="max-width:200px"></select>
+        <button type="button" class="btn small" id="bundlesBtn" data-i18n="bundles_btn">Bundles</button>
       </div>
       <ul id="list" class="list"></ul>
       <div id="empty" class="empty" hidden></div>
@@ -425,6 +437,10 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <div class="dh"><h2 id="acctTitle" data-i18n="acct_title">Your account</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
   <form id="acctForm">
     <div class="db">
+      <div class="field">
+        <span data-i18n="acct_lang_label">Language</span>
+        <div class="cta" style="margin-top:6px"><button type="button" class="btn small" id="acctLangBtn"></button></div>
+      </div>
       <label class="field"><span data-i18n="field_name">Name</span><input id="ac-name" class="input" maxlength="60"></label>
       <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
       <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
@@ -471,6 +487,28 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <p id="profileMsg" class="msg" role="alert"></p>
   </div>
   <div class="df"><button class="btn primary" type="button" id="pfAddBtn" data-i18n="family_add_btn">Add person</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
+</dialog>
+
+<dialog id="bundlesDlg" aria-labelledby="bundlesTitle">
+  <div class="dh"><h2 id="bundlesTitle" data-i18n="bundles_title">Document Bundles</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="bundles_lede">Group documents together — like “Travel Documents” or “Car Documents” — so you can view or filter them as one set.</p>
+    <ul class="profile-list" id="bundleList"></ul>
+    <div class="g2">
+      <label class="field" style="grid-column:1/-1"><span data-i18n="field_bundle_name">Bundle name</span><input id="bd-name" class="input" maxlength="60" data-i18n-ph="field_bundle_name_ph"></label>
+    </div>
+    <p id="bundleMsg" class="msg" role="alert"></p>
+  </div>
+  <div class="df"><button class="btn primary" type="button" id="bdAddBtn" data-i18n="bundles_add_btn">Create bundle</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
+</dialog>
+
+<dialog id="bundleItemsDlg" aria-labelledby="bundleItemsTitle">
+  <div class="dh"><h2 id="bundleItemsTitle"></h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="bundle_items_lede">Check the documents that belong in this bundle.</p>
+    <ul class="profile-list" id="bundleItemsList"></ul>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
 
 <dialog id="subFormDlg" aria-labelledby="subFormTitle">
@@ -589,6 +627,11 @@ function relationLabel(key){
 }
 var profiles=[];
 
+/* ---------------- Document Bundles ---------------- */
+// View/filter-only groups (e.g. "Travel Documents") a document can belong
+// to. Each bundle carries its own documentIds array from the server.
+var bundles=[], bundleFilterVal='';
+
 /* ---------------- Subscription & Payment Reminder ---------------- */
 var SUB_CATEGORIES = {
   insurance:{label:'Insurance premium',labelBn:'বিমার প্রিমিয়াম',icon:'🛡️',recurrence:'yearly'},
@@ -650,7 +693,7 @@ var STR = {
     empty_first_cta:'Add your first document',
     empty_nomatch_h2:'No matches', empty_nomatch_p:'Try a different search or filter.',
     footer_text:'A daily check on the server emails you automatically when a document enters its alarm window — no need to keep this page open.',
-    nudge_text:'You’ve added {have} of the usual {total} documents people keep here. Add your {label}?',
+    nudge_text:'You’ve added {have} of the usual {total} documents people keep here. Tap one to add it:',
     nudge_add:'Add {label}', nudge_dismiss:'Not now',
     never_expires:'Never expires', expires_today:'Expires today', no_expiry:'no expiry',
     dt_type:'Type', dt_belongs:'Belongs to', dt_number:'Document number', dt_issued:'Issued', dt_expires:'Expires',
@@ -668,7 +711,7 @@ var STR = {
     field_notes:'Notes', field_notes_ph:'Where the original is kept, renewal office, policy contact…',
     field_file:'Photo or PDF scan', field_file_hint:'Up to 6 MB.',
     save_doc:'Save document', cancel:'Cancel', remove:'Remove', save:'Save',
-    acct_title:'Your account', last_signed_in:'Last signed in: {rest}',
+    acct_title:'Your account', acct_lang_label:'Language', last_signed_in:'Last signed in: {rest}',
     toast_deleted:'Deleted', toast_doc_saved:'Document saved', toast_changes_saved:'Changes saved',
     toast_account_updated:'Account updated', toast_number_copied:'Number copied',
     toast_password_updated:'Password updated. Sign in with your new password.',
@@ -694,6 +737,11 @@ var STR = {
     family_btn:'Family', family_title:'Family Vault', family_lede:'Add the people you keep documents for. Everything still lives in your one account — this just helps you group and filter.',
     family_empty:'No one added yet.', family_add_btn:'Add person', field_family:'Family member', field_family_name:'Name', field_family_relation:'Relation',
     profile_filter_all:'Everyone', profile_none:'No one in particular', toast_family_added:'Added',
+    bundles_btn:'Bundles', bundles_title:'Document Bundles', bundles_lede:'Group documents together — like “Travel Documents” or “Car Documents” — so you can view or filter them as one set.',
+    field_bundle_name:'Bundle name', field_bundle_name_ph:'e.g. Travel Documents', bundles_add_btn:'Create bundle', bundles_empty:'No bundles yet.',
+    bundle_filter_all:'All bundles', bundle_item_count:'{n} document(s)', bundles_manage_btn:'Manage documents',
+    bundle_items_lede:'Check the documents that belong in this bundle.', bundle_no_docs:'Add some documents first.',
+    toast_bundle_added:'Bundle created', close_btn:'Close',
     applock_title:'App Lock (PIN)', pin_lede:'Enter your PIN to continue.', pin_use_password:'Use your password instead',
     pin_status_on:'PIN lock is on.', pin_status_off:'PIN lock is off.', pin_enable_btn:'Turn on PIN lock', pin_change_btn:'Change PIN', pin_disable_btn:'Turn off PIN lock',
     pin_save_btn:'Save PIN', field_new_pin_ph:'New PIN', field_confirm_pin_ph:'Confirm PIN', field_current_password_ph:'Your account password',
@@ -741,7 +789,7 @@ var STR = {
     empty_first_cta:'আপনার প্রথম ডকুমেন্ট যোগ করুন',
     empty_nomatch_h2:'কোনো মিল পাওয়া যায়নি', empty_nomatch_p:'অন্য কিছু দিয়ে খুঁজুন বা ফিল্টার পাল্টান।',
     footer_text:'সার্ভার প্রতিদিন একবার পরীক্ষা করে, ডকুমেন্ট অ্যালার্ম সময়সীমায় ঢুকলেই স্বয়ংক্রিয়ভাবে আপনাকে ইমেইল করে — এই পেজ খোলা রাখার দরকার নেই।',
-    nudge_text:'সাধারণত মানুষ এখানে {total}টি ডকুমেন্ট রাখে, আপনি {have}টি যোগ করেছেন। আপনার {label} যোগ করবেন?',
+    nudge_text:'সাধারণত মানুষ এখানে {total}টি ডকুমেন্ট রাখে, আপনি {have}টি যোগ করেছেন। যোগ করতে একটাতে চাপুন:',
     nudge_add:'{label} যোগ করুন', nudge_dismiss:'এখন না',
     never_expires:'কখনো মেয়াদ শেষ হয় না', expires_today:'আজ মেয়াদ শেষ', no_expiry:'মেয়াদ নেই',
     dt_type:'ধরন', dt_belongs:'কার নামে', dt_number:'ডকুমেন্ট নম্বর', dt_issued:'ইস্যুর তারিখ', dt_expires:'মেয়াদ শেষ',
@@ -759,7 +807,7 @@ var STR = {
     field_notes:'নোট', field_notes_ph:'মূল কপি কোথায় আছে, নবায়ন অফিস, পলিসি যোগাযোগ…',
     field_file:'ছবি বা পিডিএফ স্ক্যান', field_file_hint:'সর্বোচ্চ 6 MB।',
     save_doc:'ডকুমেন্ট সংরক্ষণ করুন', cancel:'বাতিল করুন', remove:'সরান', save:'সংরক্ষণ করুন',
-    acct_title:'আপনার অ্যাকাউন্ট', last_signed_in:'সর্বশেষ সাইন ইন: {rest}',
+    acct_title:'আপনার অ্যাকাউন্ট', acct_lang_label:'ভাষা', last_signed_in:'সর্বশেষ সাইন ইন: {rest}',
     toast_deleted:'মুছে ফেলা হয়েছে', toast_doc_saved:'ডকুমেন্ট সংরক্ষিত হয়েছে', toast_changes_saved:'পরিবর্তন সংরক্ষিত হয়েছে',
     toast_account_updated:'অ্যাকাউন্ট আপডেট হয়েছে', toast_number_copied:'নম্বর কপি হয়েছে',
     toast_password_updated:'পাসওয়ার্ড আপডেট হয়েছে। নতুন পাসওয়ার্ড দিয়ে সাইন ইন করুন।',
@@ -785,6 +833,11 @@ var STR = {
     family_btn:'পরিবার', family_title:'ফ্যামিলি ভল্ট', family_lede:'যাদের ডকুমেন্ট আপনি রাখছেন তাদের যোগ করুন। সবকিছু আপনার একই অ্যাকাউন্টে থাকবে — এটা শুধু গ্রুপ করতে ও ফিল্টার করতে সাহায্য করে।',
     family_empty:'এখনো কেউ যোগ করা হয়নি।', family_add_btn:'ব্যক্তি যোগ করুন', field_family:'পরিবারের সদস্য', field_family_name:'নাম', field_family_relation:'সম্পর্ক',
     profile_filter_all:'সবাই', profile_none:'নির্দিষ্ট কেউ না', toast_family_added:'যোগ করা হয়েছে',
+    bundles_btn:'বান্ডেল', bundles_title:'ডকুমেন্ট বান্ডেল', bundles_lede:'ডকুমেন্টগুলো একসাথে গ্রুপ করুন — যেমন “ভ্রমণের কাগজপত্র” বা “গাড়ির কাগজপত্র” — যাতে একসাথে দেখা বা ফিল্টার করা যায়।',
+    field_bundle_name:'বান্ডেলের নাম', field_bundle_name_ph:'যেমন: ভ্রমণের কাগজপত্র', bundles_add_btn:'বান্ডেল তৈরি করুন', bundles_empty:'এখনো কোনো বান্ডেল নেই।',
+    bundle_filter_all:'সব বান্ডেল', bundle_item_count:'{n}টি ডকুমেন্ট', bundles_manage_btn:'ডকুমেন্ট পরিচালনা করুন',
+    bundle_items_lede:'এই বান্ডেলে যে ডকুমেন্টগুলো থাকবে সেগুলো চেক করুন।', bundle_no_docs:'প্রথমে কিছু ডকুমেন্ট যোগ করুন।',
+    toast_bundle_added:'বান্ডেল তৈরি হয়েছে', close_btn:'বন্ধ করুন',
     applock_title:'অ্যাপ লক (পিন)', pin_lede:'চালিয়ে যেতে আপনার পিন লিখুন।', pin_use_password:'পাসওয়ার্ড দিয়ে ঢুকুন',
     pin_status_on:'পিন লক চালু আছে।', pin_status_off:'পিন লক বন্ধ আছে।', pin_enable_btn:'পিন লক চালু করুন', pin_change_btn:'পিন পরিবর্তন করুন', pin_disable_btn:'পিন লক বন্ধ করুন',
     pin_save_btn:'পিন সংরক্ষণ করুন', field_new_pin_ph:'নতুন পিন', field_confirm_pin_ph:'পিন নিশ্চিত করুন', field_current_password_ph:'আপনার অ্যাকাউন্ট পাসওয়ার্ড',
@@ -819,7 +872,7 @@ function t(key, vars){
 function applyStaticI18n(){
   document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent = t(el.getAttribute('data-i18n')); });
   document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ el.placeholder = t(el.getAttribute('data-i18n-ph')); });
-  var lb=$('#langBtn'); if(lb) lb.textContent = LANG==='bn' ? 'English' : 'বাংলা';
+  var lb=$('#acctLangBtn'); if(lb) lb.textContent = LANG==='bn' ? 'English' : 'বাংলা';
   document.documentElement.lang = LANG;
 }
 function setLang(l){
@@ -828,7 +881,7 @@ function setLang(l){
   if(typeof renderTypeOptions==='function'){ var cur=$('#f-type').value; renderTypeOptions(); $('#f-type').value=cur; }
   if(!$('#app').hidden){ render(); }
 }
-$('#langBtn').addEventListener('click', function(){ setLang(LANG==='bn' ? 'en' : 'bn'); });
+$('#acctLangBtn').addEventListener('click', function(){ setLang(LANG==='bn' ? 'en' : 'bn'); });
 applyStaticI18n();
 
 /* ---------------- API ---------------- */
@@ -891,7 +944,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -1026,9 +1079,11 @@ document.addEventListener('visibilitychange',function(){
 /* ---------------- app shell ---------------- */
 function enterApp(){
   $('#lock').hidden=true;$('#pinLock').hidden=true;$('#app').hidden=false;
-  filter='all';query='';catFilter='all';profileFilterVal='';$('#q').value='';
+  filter='all';query='';catFilter='all';profileFilterVal='';bundleFilterVal='';$('#q').value='';
   loadDocs();
   loadProfiles();
+  loadSubs();
+  loadBundles();
   api('/api/admin/whoami').then(function(data){
     isAdmin=!!data.isAdmin;
     $('#adminBtn').hidden=!isAdmin;
@@ -1145,6 +1200,7 @@ function loadDocs(){
     docs=data.docs||[];
     docs.forEach(function(d){ d.lead=Number(d.lead)||30; if(!Array.isArray(d.reminder_days))d.reminder_days=[]; });
     render();
+    loadWeeklyAlert();
   }).catch(function(e){toast(e.error||t('err_could_not_load_docs'));});
 }
 
@@ -1213,6 +1269,94 @@ $('#f-profile').addEventListener('change',function(){
   var p=profiles.filter(function(x){return x.id===this.value;},this)[0];
   if(p){ $('#f-holder').value=p.name; }
 });
+
+/* ---------------- Document Bundles ---------------- */
+function loadBundles(){
+  return api('/api/bundles').then(function(data){
+    bundles=data.bundles||[];
+    if(!$('#app').hidden) render();
+  }).catch(function(){ bundles=[]; });
+}
+function renderBundleFilter(){
+  var sel=$('#bundleFilter');if(!sel)return;
+  sel.innerHTML='<option value="">'+t('bundle_filter_all')+'</option>'+bundles.map(function(b){
+    return '<option value="'+esc(b.id)+'">'+esc(b.name)+'</option>';
+  }).join('');
+  sel.value=bundleFilterVal;
+}
+function renderBundleList(){
+  var ul=$('#bundleList');
+  if(!bundles.length){ul.innerHTML='<li class="msg info" style="border:0;padding:0">'+t('bundles_empty')+'</li>';return;}
+  ul.innerHTML=bundles.map(function(b){
+    var n=b.documentIds?b.documentIds.length:0;
+    return '<li class="profile-row"><span><span class="nm">'+esc(b.name)+'</span><br><span class="rel">'+t('bundle_item_count',{n:n})+'</span></span>'+
+      '<span style="display:flex;gap:6px"><button type="button" class="btn small" data-manage-bundle="'+esc(b.id)+'">'+t('bundles_manage_btn')+'</button>'+
+      '<button type="button" class="btn small danger" data-del-bundle="'+esc(b.id)+'">'+t('remove')+'</button></span></li>';
+  }).join('');
+  ul.querySelectorAll('[data-manage-bundle]').forEach(function(btn){
+    btn.addEventListener('click',function(){ openBundleItemsDlg(btn.dataset.manageBundle); });
+  });
+  ul.querySelectorAll('[data-del-bundle]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      if(btn.dataset.armed==='1'){
+        api('/api/bundles/'+btn.dataset.delBundle,{method:'DELETE'}).then(function(){
+          toast(t('toast_deleted'));
+          if(bundleFilterVal===btn.dataset.delBundle)bundleFilterVal='';
+          loadBundles().then(function(){renderBundleList();});
+        }).catch(function(e){toast(e.error||t('err_could_not_delete'));});
+      } else {
+        btn.dataset.armed='1';btn.textContent=t('btn_delete_confirm');btn.classList.add('armed');
+      }
+    });
+  });
+}
+$('#bundlesBtn').addEventListener('click',function(){
+  $('#bd-name').value='';$('#bundleMsg').textContent='';
+  renderBundleList();
+  $('#bundlesDlg').showModal();
+});
+$('#bdAddBtn').addEventListener('click',function(){
+  var name=$('#bd-name').value.trim(),msg=$('#bundleMsg');
+  if(!name){msg.textContent=t('err_enter_name');return;}
+  api('/api/bundles',{method:'POST',body:JSON.stringify({name:name})}).then(function(){
+    $('#bd-name').value='';msg.textContent='';
+    loadBundles().then(function(){renderBundleList();});
+    toast(t('toast_bundle_added'));
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');});
+});
+$('#bundleFilter').addEventListener('change',function(){bundleFilterVal=this.value;render();});
+
+function openBundleItemsDlg(bundleId){
+  var b=bundles.filter(function(x){return x.id===bundleId;})[0];if(!b)return;
+  $('#bundleItemsTitle').textContent=b.name;
+  renderBundleItemsChecklist(b);
+  $('#bundlesDlg').close();
+  $('#bundleItemsDlg').showModal();
+}
+function renderBundleItemsChecklist(b){
+  var ul=$('#bundleItemsList');
+  if(!docs.length){ul.innerHTML='<li class="msg info" style="border:0;padding:0">'+t('bundle_no_docs')+'</li>';return;}
+  var memberIds={};(b.documentIds||[]).forEach(function(id){memberIds[id]=true;});
+  ul.innerHTML=sortedDocs(docs).map(function(d){
+    var T=TYPES[d.type]||TYPES.other;
+    var checked=!!memberIds[d.id];
+    return '<li class="profile-row"><label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:100%">'+
+      '<input type="checkbox" data-bundle-doc="'+esc(d.id)+'" '+(checked?'checked':'')+'>'+
+      '<span>'+T.icon+' '+esc(d.title)+'</span></label></li>';
+  }).join('');
+  ul.querySelectorAll('[data-bundle-doc]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var docId=cb.dataset.bundleDoc;
+      var call = cb.checked
+        ? api('/api/bundles/'+b.id+'/items',{method:'POST',body:JSON.stringify({documentId:docId})})
+        : api('/api/bundles/'+b.id+'/items/'+docId,{method:'DELETE'});
+      call.then(function(){ loadBundles(); }).catch(function(e){
+        cb.checked=!cb.checked;
+        toast(e.error||t('err_could_not_save'));
+      });
+    });
+  });
+}
 
 /* ---------------- account ---------------- */
 function lastSignInText(){
@@ -1360,6 +1504,9 @@ function countBlock(d){
   return '<span class="count '+tn+'"><b>'+n+'</b><small>'+leftLabel+'</small></span>';
 }
 
+// Add Missing Documents: shows every usual document type the account
+// doesn't have yet as one checklist (rather than nudging about a single
+// type at a time), so it's clear at a glance what's left to add.
 function renderNudge(){
   var el=$('#nudge');
   if(nudgeDismissed){el.hidden=true;return;}
@@ -1368,17 +1515,53 @@ function renderNudge(){
   var have=COMMON_TYPES.filter(function(k){return present[k];}).length;
   var missing=COMMON_TYPES.filter(function(k){return !present[k];});
   if(!missing.length){el.hidden=true;return;}
-  var next=TYPES[missing[0]];
-  var nextLabel=esc(LANG==='bn'?typeLabel(next):next.label.toLowerCase());
   el.hidden=false;
-  el.innerHTML='<p>'+t('nudge_text',{have:have,total:COMMON_TYPES.length,label:nextLabel})+'</p>'+
-    '<div class="cta"><button class="btn small" type="button" id="nudgeAdd">'+t('nudge_add',{label:esc(typeLabel(next))})+'</button><button class="btn small" type="button" id="nudgeDismiss">'+t('nudge_dismiss')+'</button></div>';
-  $('#nudgeAdd').addEventListener('click',function(){
-    openForm();
-    $('#f-type').value=missing[0];
-    $('#f-type').dispatchEvent(new Event('change'));
+  var itemsHtml=missing.map(function(k){
+    var T=TYPES[k];
+    return '<li><button type="button" class="nudge-item" data-type="'+esc(k)+'"><span class="box" aria-hidden="true"></span>'+esc(typeLabel(T))+'</button></li>';
+  }).join('');
+  el.innerHTML='<p>'+t('nudge_text',{have:have,total:COMMON_TYPES.length})+'</p>'+
+    '<ul class="nudge-list">'+itemsHtml+'</ul>'+
+    '<div class="cta"><button class="btn small" type="button" id="nudgeDismiss">'+t('nudge_dismiss')+'</button></div>';
+  el.querySelectorAll('.nudge-item').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      openForm();
+      $('#f-type').value=btn.dataset.type;
+      $('#f-type').dispatchEvent(new Event('change'));
+    });
   });
   $('#nudgeDismiss').addEventListener('click',function(){nudgeDismissed=true;renderNudge();});
+}
+
+/* ---------------- Life Admin Alert (documents + subscriptions, combined) ---------------- */
+function loadWeeklyAlert(){
+  api('/api/alerts/weekly').then(function(data){
+    renderLifeAlert(data.count||0, data.items||[]);
+  }).catch(function(){ $('#lifeAlert').hidden=true; });
+}
+function renderLifeAlert(count, items){
+  var el=$('#lifeAlert');
+  if(!count){ el.hidden=true; el.innerHTML=''; return; }
+  el.hidden=false;
+  var rows=items.map(function(it){
+    var when;
+    if(it.daysLeft<0) when = LANG==='bn' ? ((-it.daysLeft)+' দিন আগে') : ((-it.daysLeft)+(it.daysLeft===-1?' day':' days')+' overdue');
+    else if(it.daysLeft===0) when = LANG==='bn' ? 'আজ' : 'today';
+    else when = LANG==='bn' ? (it.daysLeft+' দিনের মধ্যে') : ('in '+plural(it.daysLeft,'day'));
+    return '<li><button type="button" class="alert-item" data-kind="'+esc(it.kind)+'" data-id="'+esc(it.id)+'">'+esc(it.title)+'</button><span class="when">'+esc(when)+'</span></li>';
+  }).join('');
+  var titleText = LANG==='bn' ? ('এই সপ্তাহে আপনার '+count+'টি বিষয়ে নজর দিতে হবে') : ('You have '+plural(count,'thing')+' to take care of this week');
+  el.innerHTML='<h3>'+esc(titleText)+'</h3><ul>'+rows+'</ul>';
+  el.querySelectorAll('.alert-item').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      if(btn.dataset.kind==='subscription'){
+        if(!subs.length){ loadSubs().then(function(){ openSubDetail(btn.dataset.id); }); }
+        else { openSubDetail(btn.dataset.id); }
+      } else {
+        openDetail(btn.dataset.id);
+      }
+    });
+  });
 }
 
 function render(){
@@ -1388,6 +1571,7 @@ function render(){
   renderHero();
   renderCategoryList();
   renderProfileFilter();
+  renderBundleFilter();
   var counts={all:docs.length,soon:docs.filter(needsAttention).length,none:docs.filter(function(d){return !d.expiry;}).length};
   var tabs=[['all',t('tab_all')],['soon',t('tab_soon')],['none',t('tab_none')]];
   $('#tabs').innerHTML=tabs.map(function(tb){
@@ -1411,6 +1595,10 @@ function render(){
     if(filter==='none'&&d.expiry)return false;
     if(catFilter!=='all'&&docCategory(d)!==catFilter)return false;
     if(profileFilterVal&&d.profile_id!==profileFilterVal)return false;
+    if(bundleFilterVal){
+      var inBundle=bundles.some(function(b){return b.id===bundleFilterVal&&(b.documentIds||[]).indexOf(d.id)>=0;});
+      if(!inBundle)return false;
+    }
     if(q){var Td=TYPES[d.type]||TYPES.other;var hay=(d.title+' '+d.holder+' '+Td.label+' '+(Td.labelBn||'')+' '+(d.notes||'')).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
   });
@@ -1906,10 +2094,11 @@ function sortedSubs(list){
   });
 }
 function loadSubs(){
-  api('/api/subscriptions').then(function(data){
+  return api('/api/subscriptions').then(function(data){
     subs=data.subscriptions||[];
     subs.forEach(function(s){ if(!Array.isArray(s.reminder_days))s.reminder_days=[]; });
     renderSubs();
+    loadWeeklyAlert();
   }).catch(function(e){toast(e.error||t('err_could_not_load_subs'));});
 }
 function renderSubHealthDash(){
@@ -2056,7 +2245,7 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 

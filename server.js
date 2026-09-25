@@ -391,6 +391,7 @@ app.delete('/api/documents/:id', auth, wrap(async (req, res) => {
   if (!d) return res.status(404).json({ error: 'Not found.' });
   await db.deleteFilesByDocument(d.id);
   await db.deleteNotifiedByDocument(d.id);
+  await db.deleteBundleItemsByDocument(d.id);
   await db.deleteDocument(d.id);
   res.json({ ok: true });
 }));
@@ -463,6 +464,78 @@ app.delete('/api/subscriptions/:id', auth, wrap(async (req, res) => {
   if (!s) return res.status(404).json({ error: 'Not found.' });
   await db.deleteSubscription(s.id);
   res.json({ ok: true });
+}));
+
+/* ---------------- document bundles (e.g. "Travel Documents") ---------------- */
+// View/filter-only grouping for now — no bulk download or public sharing.
+// A document can belong to more than one bundle.
+app.get('/api/bundles', auth, wrap(async (req, res) => {
+  const bundles = await db.listBundlesByUser(req.userId);
+  const items = await db.listBundleItemsByUser(req.userId);
+  const byBundle = {};
+  items.forEach(it => { (byBundle[it.bundle_id] = byBundle[it.bundle_id] || []).push(it.document_id); });
+  res.json({ bundles: bundles.map(b => ({ id: b.id, name: b.name, createdAt: b.created_at, documentIds: byBundle[b.id] || [] })) });
+}));
+
+app.post('/api/bundles', auth, wrap(async (req, res) => {
+  const { name } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'Give this bundle a name.' });
+  const id = uuid();
+  await db.insertBundle({ id, user_id: req.userId, name: String(name).trim().slice(0, 60), created_at: Date.now() });
+  res.json({ id });
+}));
+
+app.put('/api/bundles/:id', auth, wrap(async (req, res) => {
+  const b = await db.findBundle(req.params.id, req.userId);
+  if (!b) return res.status(404).json({ error: 'Not found.' });
+  const { name } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'Give this bundle a name.' });
+  await db.updateBundle(b.id, { name: String(name).trim().slice(0, 60) });
+  res.json({ ok: true });
+}));
+
+app.delete('/api/bundles/:id', auth, wrap(async (req, res) => {
+  const b = await db.findBundle(req.params.id, req.userId);
+  if (!b) return res.status(404).json({ error: 'Not found.' });
+  await db.deleteBundle(b.id);
+  res.json({ ok: true });
+}));
+
+app.post('/api/bundles/:id/items', auth, wrap(async (req, res) => {
+  const b = await db.findBundle(req.params.id, req.userId);
+  if (!b) return res.status(404).json({ error: 'Not found.' });
+  const d = await db.findDocument((req.body || {}).documentId, req.userId);
+  if (!d) return res.status(404).json({ error: 'Document not found.' });
+  await db.insertBundleItem({ id: uuid(), bundle_id: b.id, document_id: d.id });
+  res.json({ ok: true });
+}));
+
+app.delete('/api/bundles/:id/items/:documentId', auth, wrap(async (req, res) => {
+  const b = await db.findBundle(req.params.id, req.userId);
+  if (!b) return res.status(404).json({ error: 'Not found.' });
+  await db.deleteBundleItem(b.id, req.params.documentId);
+  res.json({ ok: true });
+}));
+
+/* ---------------- Life Admin Alert (documents + subscriptions due soon, combined) ---------------- */
+const WEEKLY_ALERT_WINDOW_DAYS = 7;
+async function weeklyAlertItemsForUser(userId) {
+  const [docs, subs] = await Promise.all([db.listDocumentsByUser(userId), db.listSubscriptionsByUser(userId)]);
+  const items = [];
+  docs.forEach(d => {
+    const dl = daysLeft(d.expiry);
+    if (dl !== null && dl <= WEEKLY_ALERT_WINDOW_DAYS) items.push({ kind: 'document', id: d.id, title: d.title, daysLeft: dl });
+  });
+  subs.forEach(s => {
+    const dl = daysLeft(s.next_due);
+    if (dl !== null && dl <= WEEKLY_ALERT_WINDOW_DAYS) items.push({ kind: 'subscription', id: s.id, title: s.name, daysLeft: dl });
+  });
+  items.sort((a, b) => a.daysLeft - b.daysLeft);
+  return items;
+}
+app.get('/api/alerts/weekly', auth, wrap(async (req, res) => {
+  const items = await weeklyAlertItemsForUser(req.userId);
+  res.json({ count: items.length, items: items.slice(0, 8) });
 }));
 
 /* ---------------- files (stored as bytes in the database) ---------------- */
@@ -628,6 +701,7 @@ async function runWeeklyEngagementSweep() {
 
   const users = await db.weeklyEmailCandidates();
   const withExpiry = await db.allDocumentsWithExpiry();
+  const withDue = await db.allSubscriptionsWithDue();
   const nearestByUser = {};
   for (const d of withExpiry) {
     const dl = daysLeft(d.expiry);
@@ -635,6 +709,18 @@ async function runWeeklyEngagementSweep() {
     const cur = nearestByUser[d.user_id];
     if (!cur || dl < cur.dl) nearestByUser[d.user_id] = { dl, title: d.title, expiry: d.expiry };
   }
+  // Life Admin Alert: documents + subscriptions together, due/expiring
+  // within the same week-out window as the in-app banner (see
+  // weeklyAlertItemsForUser above), so the email and the banner always
+  // agree on what counts as "this week".
+  const alertItemsByUser = {};
+  function pushAlertItem(userId, title, dl) {
+    if (dl > WEEKLY_ALERT_WINDOW_DAYS) return;
+    (alertItemsByUser[userId] = alertItemsByUser[userId] || []).push({ title, dl });
+  }
+  withExpiry.forEach(d => { const dl = daysLeft(d.expiry); if (dl !== null) pushAlertItem(d.user_id, d.title, dl); });
+  withDue.forEach(s => { const dl = daysLeft(s.next_due); if (dl !== null) pushAlertItem(s.user_id, s.name, dl); });
+  Object.keys(alertItemsByUser).forEach(uid => alertItemsByUser[uid].sort((a, b) => a.dl - b.dl));
 
   for (const u of users) {
     if (!u.email) continue;
@@ -651,6 +737,18 @@ async function runWeeklyEngagementSweep() {
       subject = 'Quick check: ' + u.missing_expiry_count + ' of your documents have no expiry date';
       body = 'Hi ' + u.name + ',\n\n' +
         u.missing_expiry_count + ' of your ' + u.doc_count + ' saved document(s) don\'t have an expiry date set, so we can\'t remind you before they lapse. Open your vault and add the missing dates.' +
+        (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
+        '\n\n— Life Documents';
+    } else if ((alertItemsByUser[u.id] || []).length > 0) {
+      const items = alertItemsByUser[u.id];
+      subject = 'You have ' + items.length + ' thing' + (items.length === 1 ? '' : 's') + ' to take care of this week';
+      const lines = items.slice(0, 8).map(it => {
+        const when = it.dl < 0 ? ((-it.dl) + ' day(s) overdue') : it.dl === 0 ? 'due/expires today' : ('in ' + it.dl + ' day(s)');
+        return '- ' + it.title + ' — ' + when;
+      }).join('\n');
+      body = 'Hi ' + u.name + ',\n\n' +
+        'Here\'s what needs your attention this week:\n\n' + lines +
+        (items.length > 8 ? ('\n\n...and ' + (items.length - 8) + ' more.') : '') +
         (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
         '\n\n— Life Documents';
     } else {

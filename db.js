@@ -79,6 +79,24 @@ async function init() {
     -- list (default 180/90/30/7/1 days before) — "lead" is kept as-is for
     -- the countdown color, this is only for which emails go out and when.
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS reminder_days INTEGER[] NOT NULL DEFAULT '{180,90,30,7,1}';
+    -- Document Bundles: named groups (e.g. "Travel Documents", "Car
+    -- Documents") a document can belong to, purely for viewing/filtering
+    -- together in-app. A document can be in more than one bundle.
+    CREATE TABLE IF NOT EXISTS bundles(
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_bundles_user ON bundles(user_id);
+    CREATE TABLE IF NOT EXISTS bundle_items(
+      id TEXT PRIMARY KEY,
+      bundle_id TEXT NOT NULL REFERENCES bundles(id),
+      document_id TEXT NOT NULL REFERENCES documents(id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uniq_bundle_item ON bundle_items(bundle_id, document_id);
+    CREATE INDEX IF NOT EXISTS idx_bundle_items_bundle ON bundle_items(bundle_id);
+    CREATE INDEX IF NOT EXISTS idx_bundle_items_doc ON bundle_items(document_id);
     CREATE TABLE IF NOT EXISTS files(
       id TEXT PRIMARY KEY,
       document_id TEXT NOT NULL REFERENCES documents(id),
@@ -255,6 +273,54 @@ module.exports = {
       WHERE documents.expiry IS NOT NULL AND documents.expiry <> ''
     `);
     return r.rows;
+  },
+
+  // ---- bundles (Document Bundles) ----
+  async insertBundle(b) {
+    await pool.query(
+      'INSERT INTO bundles(id,user_id,name,created_at) VALUES($1,$2,$3,$4)',
+      [b.id, b.user_id, b.name, b.created_at]
+    );
+  },
+  async listBundlesByUser(userId) {
+    const r = await pool.query('SELECT * FROM bundles WHERE user_id=$1 ORDER BY created_at', [userId]);
+    return r.rows;
+  },
+  async findBundle(id, userId) {
+    const r = await pool.query('SELECT * FROM bundles WHERE id=$1 AND user_id=$2', [id, userId]);
+    return r.rows[0] || null;
+  },
+  async updateBundle(id, patch) {
+    const keys = Object.keys(patch);
+    if (!keys.length) return;
+    const sets = keys.map((k, i) => `${k}=$${i + 2}`).join(', ');
+    await pool.query(`UPDATE bundles SET ${sets} WHERE id=$1`, [id, ...keys.map(k => patch[k])]);
+  },
+  async deleteBundle(id) {
+    await pool.query('DELETE FROM bundle_items WHERE bundle_id=$1', [id]);
+    await pool.query('DELETE FROM bundles WHERE id=$1', [id]);
+  },
+  // All (bundle_id, document_id) pairs across every bundle this user owns,
+  // so the client can build a full membership map in one round trip.
+  async listBundleItemsByUser(userId) {
+    const r = await pool.query(
+      `SELECT bi.bundle_id, bi.document_id FROM bundle_items bi
+       JOIN bundles b ON b.id = bi.bundle_id WHERE b.user_id=$1`,
+      [userId]
+    );
+    return r.rows;
+  },
+  async insertBundleItem(it) {
+    await pool.query(
+      'INSERT INTO bundle_items(id,bundle_id,document_id) VALUES($1,$2,$3) ON CONFLICT (bundle_id,document_id) DO NOTHING',
+      [it.id, it.bundle_id, it.document_id]
+    );
+  },
+  async deleteBundleItem(bundleId, documentId) {
+    await pool.query('DELETE FROM bundle_items WHERE bundle_id=$1 AND document_id=$2', [bundleId, documentId]);
+  },
+  async deleteBundleItemsByDocument(documentId) {
+    await pool.query('DELETE FROM bundle_items WHERE document_id=$1', [documentId]);
   },
 
   // ---- profiles (Family Vault) ----

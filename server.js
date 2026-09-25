@@ -32,14 +32,24 @@ function sendMail(to, subject, text) {
 // off entirely unless VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are set in .env.
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+// Whether push is actually usable — false if the keys are missing OR if
+// VAPID_CONTACT is malformed (web-push requires "mailto:..." or "https://...").
+// A bad env var here should silently disable this one feature, never take
+// the whole server down.
+let vapidReady = false;
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(process.env.VAPID_CONTACT || 'mailto:admin@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  try {
+    webpush.setVapidDetails(process.env.VAPID_CONTACT || 'mailto:admin@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    vapidReady = true;
+  } catch (e) {
+    console.error('Push notifications are disabled — VAPID_CONTACT must start with "mailto:" or "https://":', e.message);
+  }
 }
 // Sends to every device the admin has enabled notifications on. Never
 // throws — a subscription that's gone stale (the browser/OS revoked it) is
 // just quietly removed instead of failing the caller.
 async function notifyAdminPush(title, body, url) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  if (!vapidReady) return;
   try {
     const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
     if (!adminEmail) return;
@@ -434,7 +444,7 @@ app.post('/api/announcements/read-all', auth, wrap(async (req, res) => {
 
 /* ---------------- push notification subscription (admin only) ---------------- */
 app.get('/api/push/vapid-public-key', auth, requireAdmin, wrap(async (req, res) => {
-  res.json({ publicKey: VAPID_PUBLIC_KEY || null });
+  res.json({ publicKey: vapidReady ? VAPID_PUBLIC_KEY : null });
 }));
 
 app.post('/api/admin/push-subscribe', auth, requireAdmin, wrap(async (req, res) => {

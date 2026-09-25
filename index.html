@@ -111,6 +111,14 @@ main{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 64px}
 .nudge-item .box{width:18px;height:18px;border-radius:5px;border:2px solid var(--muted);flex:0 0 auto}
 .nudge p{margin:0 0 10px;font-size:15px}
 .nudge .cta{display:flex;gap:10px;flex-wrap:wrap}
+.announce-btn{position:relative}
+.announce-badge{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;font-size:11px;font-weight:700;line-height:1;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.announce-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.announce-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.announce-item.unread{border-color:var(--brand)}
+.announce-item h4{margin:0 0 6px;font-size:15px}
+.announce-item .when{color:var(--muted);font-size:13px;display:block;margin-top:6px}
+.announce-item p{margin:0;white-space:pre-wrap;font-size:14px}
 .hero[data-tone="amber"] .btn:hover{background:rgba(0,0,0,.16)}
 .hero .btn:focus-visible{outline-color:currentColor}
 
@@ -315,6 +323,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <header class="top">
     <span class="brand">Life Documents</span>
     <div class="right">
+      <button id="announceBtn" class="btn announce-btn" type="button" aria-label="Announcements"><span aria-hidden="true">🔔</span><span id="announceBadge" class="announce-badge" hidden>0</span></button>
       <button id="adminBtn" class="btn" type="button" hidden>Admin</button>
       <button id="familyBtn" class="btn" type="button" data-i18n="family_btn">Family</button>
       <button id="acctBtn" class="btn" type="button" data-i18n="acct_btn">Account</button>
@@ -507,6 +516,14 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <div class="db">
     <p class="msg info" data-i18n="bundle_items_lede">Check the documents that belong in this bundle.</p>
     <ul class="profile-list" id="bundleItemsList"></ul>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
+</dialog>
+
+<dialog id="announceDlg" aria-labelledby="announceTitle">
+  <div class="dh"><h2 id="announceTitle" data-i18n="announce_title">Announcements</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <ul class="announce-list" id="announceList"></ul>
   </div>
   <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
@@ -742,6 +759,7 @@ var STR = {
     bundle_filter_all:'All bundles', bundle_item_count:'{n} document(s)', bundles_manage_btn:'Manage documents',
     bundle_items_lede:'Check the documents that belong in this bundle.', bundle_no_docs:'Add some documents first.',
     toast_bundle_added:'Bundle created', close_btn:'Close',
+    announce_title:'Announcements', announce_empty:'No announcements yet.',
     applock_title:'App Lock (PIN)', pin_lede:'Enter your PIN to continue.', pin_use_password:'Use your password instead',
     pin_status_on:'PIN lock is on.', pin_status_off:'PIN lock is off.', pin_enable_btn:'Turn on PIN lock', pin_change_btn:'Change PIN', pin_disable_btn:'Turn off PIN lock',
     pin_save_btn:'Save PIN', field_new_pin_ph:'New PIN', field_confirm_pin_ph:'Confirm PIN', field_current_password_ph:'Your account password',
@@ -838,6 +856,7 @@ var STR = {
     bundle_filter_all:'সব বান্ডেল', bundle_item_count:'{n}টি ডকুমেন্ট', bundles_manage_btn:'ডকুমেন্ট পরিচালনা করুন',
     bundle_items_lede:'এই বান্ডেলে যে ডকুমেন্টগুলো থাকবে সেগুলো চেক করুন।', bundle_no_docs:'প্রথমে কিছু ডকুমেন্ট যোগ করুন।',
     toast_bundle_added:'বান্ডেল তৈরি হয়েছে', close_btn:'বন্ধ করুন',
+    announce_title:'ঘোষণা', announce_empty:'এখনো কোনো ঘোষণা নেই।',
     applock_title:'অ্যাপ লক (পিন)', pin_lede:'চালিয়ে যেতে আপনার পিন লিখুন।', pin_use_password:'পাসওয়ার্ড দিয়ে ঢুকুন',
     pin_status_on:'পিন লক চালু আছে।', pin_status_off:'পিন লক বন্ধ আছে।', pin_enable_btn:'পিন লক চালু করুন', pin_change_btn:'পিন পরিবর্তন করুন', pin_disable_btn:'পিন লক বন্ধ করুন',
     pin_save_btn:'পিন সংরক্ষণ করুন', field_new_pin_ph:'নতুন পিন', field_confirm_pin_ph:'পিন নিশ্চিত করুন', field_current_password_ph:'আপনার অ্যাকাউন্ট পাসওয়ার্ড',
@@ -944,7 +963,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -1084,6 +1103,8 @@ function enterApp(){
   loadProfiles();
   loadSubs();
   loadBundles();
+  loadAnnouncements();
+  startAnnouncePolling();
   api('/api/admin/whoami').then(function(data){
     isAdmin=!!data.isAdmin;
     $('#adminBtn').hidden=!isAdmin;
@@ -1103,6 +1124,7 @@ $('#adminBtn').addEventListener('click',function(){ adminShowUsers(); $('#adminD
 function adminShowUsers(){
   $('#adminTitle').textContent='Admin — all users';
   $('#adminBody').innerHTML=
+    '<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button type="button" class="btn small" id="adminBroadcastBtn">📢 Send Announcement</button></div>'+
     '<div class="admin-stats" id="adminStats">'+
       '<div class="admin-stat"><b>—</b><span>Total users</span></div>'+
       '<div class="admin-stat"><b>—</b><span>Total documents</span></div>'+
@@ -1131,6 +1153,8 @@ function adminShowUsers(){
   }).catch(function(){ /* leave the dashes if this call fails */ });
 
   adminLoadUsers();
+
+  $('#adminBroadcastBtn').addEventListener('click',adminShowBroadcast);
 
   $('#adminSearch').addEventListener('input',function(e){
     adminQuery=e.target.value;
@@ -1193,6 +1217,120 @@ function adminShowUserDocs(userId){
       });
     });
   }).catch(function(e){ $('#adminBody').innerHTML='<p class="msg">'+esc(e.error||'Could not load this user.')+'</p>'; });
+}
+
+/* ---------------- Admin Broadcast/Announcement tool ---------------- */
+var BROADCAST_PRESETS=[
+  {title:'Scheduled maintenance', body:'We’ll be performing scheduled maintenance soon. The app may be briefly unavailable during this time. Thanks for your patience.'},
+  {title:'New feature announcement', body:'We just added a new feature to Life Documents! Open the app to check it out.'},
+  {title:'Please check your documents', body:'A quick reminder to review your saved documents and make sure the expiry dates are still accurate — especially anything you’ve recently renewed.'},
+  {title:'General update', body:'We’ve made some improvements to Life Documents. Open the app any time to see what’s new.'}
+];
+var bcTargetUserId=null, bcSearchTimer=null;
+function adminShowBroadcast(){
+  $('#adminTitle').textContent='Admin — announcements';
+  bcTargetUserId=null;
+  $('#adminBody').innerHTML=
+    '<button type="button" class="btn small admin-back" id="adminBackFromBroadcast">&larr; All users</button>'+
+    '<h3 style="margin:16px 0 6px">Send an announcement</h3>'+
+    '<div class="g2">'+
+      '<label class="field" style="grid-column:1/-1"><span>Quick template (optional)</span>'+
+        '<select id="bcPreset" class="input"><option value="">— Choose a template —</option>'+
+        BROADCAST_PRESETS.map(function(p,i){return '<option value="'+i+'">'+esc(p.title)+'</option>';}).join('')+
+        '</select></label>'+
+      '<label class="field" style="grid-column:1/-1"><span>Title</span><input id="bcTitle" class="input" maxlength="120"></label>'+
+      '<label class="field" style="grid-column:1/-1"><span>Message</span><textarea id="bcBody" class="input" rows="6"></textarea></label>'+
+    '</div>'+
+    '<div class="g2" style="margin-top:10px">'+
+      '<label class="field"><span>Send by</span><div style="display:flex;gap:14px;align-items:center;min-height:44px">'+
+        '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcEmail" checked> Email</label>'+
+        '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcInapp" checked> In-app</label>'+
+      '</div></label>'+
+      '<label class="field"><span>Audience</span><select id="bcAudience" class="input">'+
+        '<option value="all">All users</option><option value="user">Specific user…</option>'+
+      '</select></label>'+
+    '</div>'+
+    '<div id="bcTargetRow" hidden style="margin-top:10px">'+
+      '<label class="field"><span>Find user (name, email, or phone)</span><input id="bcTargetSearch" class="input" placeholder="Type to search…"></label>'+
+      '<div id="bcTargetResults"></div>'+
+      '<p id="bcTargetChosen" class="msg info" style="display:none"></p>'+
+    '</div>'+
+    '<p id="bcMsg" class="msg" role="alert"></p>'+
+    '<div class="df"><button class="btn primary" type="button" id="bcSendBtn">Send announcement</button></div>'+
+    '<h3 style="margin:22px 0 6px">Recent announcements</h3>'+
+    '<div id="bcHistory"><p class="msg info">Loading…</p></div>';
+
+  $('#adminBackFromBroadcast').addEventListener('click',adminShowUsers);
+
+  $('#bcPreset').addEventListener('change',function(){
+    var p=BROADCAST_PRESETS[this.value];
+    if(p){ $('#bcTitle').value=p.title; $('#bcBody').value=p.body; }
+  });
+  $('#bcAudience').addEventListener('change',function(){
+    $('#bcTargetRow').hidden=this.value!=='user';
+  });
+  $('#bcTargetSearch').addEventListener('input',function(){
+    var q=this.value.trim();
+    clearTimeout(bcSearchTimer);
+    bcTargetUserId=null;
+    $('#bcTargetChosen').style.display='none';
+    if(!q){ $('#bcTargetResults').innerHTML=''; return; }
+    bcSearchTimer=setTimeout(function(){
+      api('/api/admin/users?q='+encodeURIComponent(q)).then(function(data){
+        if(!$('#bcTargetResults'))return;
+        var results=(data.users||[]).slice(0,8);
+        $('#bcTargetResults').innerHTML=results.length
+          ? '<ul class="admin-list">'+results.map(function(u){
+              return '<li><button type="button" class="admin-row" data-pick-user="'+esc(u.id)+'" data-pick-name="'+esc(u.name)+'" data-pick-email="'+esc(u.email)+'"><span><span class="nm">'+esc(u.name)+'</span><br><span class="sub">'+esc(u.email)+'</span></span></button></li>';
+            }).join('')+'</ul>'
+          : '<p class="msg info">No matching users.</p>';
+        $('#bcTargetResults').querySelectorAll('[data-pick-user]').forEach(function(b){
+          b.addEventListener('click',function(){
+            bcTargetUserId=b.dataset.pickUser;
+            $('#bcTargetChosen').style.display='';
+            $('#bcTargetChosen').textContent='Sending to: '+b.dataset.pickName+' ('+b.dataset.pickEmail+')';
+            $('#bcTargetResults').innerHTML='';
+            $('#bcTargetSearch').value='';
+          });
+        });
+      }).catch(function(){ if($('#bcTargetResults'))$('#bcTargetResults').innerHTML='<p class="msg">Could not search users.</p>'; });
+    },300);
+  });
+
+  $('#bcSendBtn').addEventListener('click',function(){
+    var msg=$('#bcMsg'),btn=this;
+    var title=$('#bcTitle').value.trim(), body=$('#bcBody').value.trim();
+    var wantEmail=$('#bcEmail').checked, wantInapp=$('#bcInapp').checked;
+    var audience=$('#bcAudience').value;
+    msg.textContent='';
+    if(!title||!body){ msg.textContent='Write a title and a message.'; return; }
+    if(!wantEmail&&!wantInapp){ msg.textContent='Pick at least one channel (email or in-app).'; return; }
+    if(audience==='user'&&!bcTargetUserId){ msg.textContent='Search for and select a user to target.'; return; }
+    var channel = wantEmail&&wantInapp ? 'both' : (wantEmail ? 'email' : 'inapp');
+    btn.disabled=true;btn.textContent='Sending…';
+    api('/api/admin/broadcasts',{method:'POST',body:JSON.stringify({title:title,body:body,channel:channel,audience:audience,targetUserId:audience==='user'?bcTargetUserId:null})}).then(function(){
+      toast('Announcement sent');
+      $('#bcTitle').value='';$('#bcBody').value='';$('#bcPreset').value='';
+      adminLoadBroadcastHistory();
+    }).catch(function(e){ msg.textContent=e.error||'Could not send this announcement.'; }).then(function(){ if($('#bcSendBtn')){$('#bcSendBtn').disabled=false;$('#bcSendBtn').textContent='Send announcement';} });
+  });
+
+  adminLoadBroadcastHistory();
+}
+function adminLoadBroadcastHistory(){
+  var el=$('#bcHistory'); if(!el)return;
+  api('/api/admin/broadcasts').then(function(data){
+    if(!$('#bcHistory'))return;
+    var list=data.broadcasts||[];
+    if(!list.length){ $('#bcHistory').innerHTML='<p class="msg info">No announcements sent yet.</p>'; return; }
+    $('#bcHistory').innerHTML='<ul class="admin-list">'+list.map(function(b){
+      var who = b.audience==='user' ? ('to '+(b.target_name||b.target_email||'one user')) : 'to all users';
+      var chan = b.channel==='both' ? 'Email + In-app' : (b.channel==='email' ? 'Email only' : 'In-app only');
+      return '<li style="padding:10px 12px;border:1px solid var(--line);border-radius:10px">'+
+        '<b>'+esc(b.title)+'</b><br><span class="sub">'+esc(chan)+' · '+esc(who)+' · '+esc(adminDateTime(b.created_at))+'</span>'+
+        '<p style="margin:6px 0 0;white-space:pre-wrap">'+esc(b.body)+'</p></li>';
+    }).join('')+'</ul>';
+  }).catch(function(){ if($('#bcHistory'))$('#bcHistory').innerHTML='<p class="msg">Could not load announcement history.</p>'; });
 }
 
 function loadDocs(){
@@ -1563,6 +1701,45 @@ function renderLifeAlert(count, items){
     });
   });
 }
+
+/* ---------------- Announcements (admin broadcasts, recipient side) ---------------- */
+var announcements=[], announcePollStarted=false;
+// There's no push channel from the admin's broadcast to an already-open tab,
+// so without this a new announcement's badge would only ever appear after
+// the next sign-in. A light poll is enough for an occasional admin message —
+// guarded so re-entering the app (PIN unlock, etc.) never stacks intervals.
+function startAnnouncePolling(){
+  if(announcePollStarted)return;
+  announcePollStarted=true;
+  setInterval(loadAnnouncements, 120000);
+}
+function loadAnnouncements(){
+  return api('/api/announcements').then(function(data){
+    announcements=data.announcements||[];
+    var unread=announcements.filter(function(a){return !a.read;}).length;
+    var badge=$('#announceBadge');
+    if(unread){ badge.hidden=false; badge.textContent=unread>9?'9+':String(unread); }
+    else { badge.hidden=true; }
+  }).catch(function(){ announcements=[]; $('#announceBadge').hidden=true; });
+}
+function renderAnnounceList(){
+  var ul=$('#announceList');
+  if(!announcements.length){ ul.innerHTML='<li class="msg info" style="border:0;padding:0">'+t('announce_empty')+'</li>'; return; }
+  ul.innerHTML=announcements.map(function(a){
+    var when=new Date(Number(a.created_at)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    return '<li class="announce-item'+(a.read?'':' unread')+'"><h4>'+esc(a.title)+'</h4><p>'+esc(a.body)+'</p><span class="when">'+esc(when)+'</span></li>';
+  }).join('');
+}
+$('#announceBtn').addEventListener('click',function(){
+  renderAnnounceList();
+  $('#announceDlg').showModal();
+  if(announcements.some(function(a){return !a.read;})){
+    api('/api/announcements/read-all',{method:'POST'}).then(function(){
+      announcements.forEach(function(a){a.read=true;});
+      $('#announceBadge').hidden=true;
+    }).catch(function(){});
+  }
+});
 
 function render(){
   applyStaticI18n();
@@ -2245,7 +2422,7 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 

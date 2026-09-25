@@ -327,6 +327,70 @@ app.get('/api/admin/files/:id', auth, requireAdmin, wrap(async (req, res) => {
   res.send(f.data);
 }));
 
+/* ---------------- admin broadcasts / announcements ---------------- */
+// The admin writes one title+message and picks, per broadcast, the channel
+// (email, in-app, or both) and the audience (everyone, or one specific
+// account) — the recipient doesn't get a separate preference for this;
+// whatever the admin picked for that broadcast is what goes out.
+function isValidBroadcastChannel(c) { return c === 'email' || c === 'inapp' || c === 'both'; }
+
+app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
+  const b = req.body || {};
+  const title = String(b.title || '').trim();
+  const body = String(b.body || '').trim();
+  if (!title || !body) return res.status(400).json({ error: 'Write a title and a message.' });
+  const channel = isValidBroadcastChannel(b.channel) ? b.channel : 'both';
+  const audience = b.audience === 'user' ? 'user' : 'all';
+
+  let targetUser = null;
+  if (audience === 'user') {
+    if (!b.targetUserId) return res.status(400).json({ error: 'Pick a user to target.' });
+    targetUser = await db.findUserById(b.targetUserId);
+    if (!targetUser) return res.status(404).json({ error: 'That user was not found.' });
+  }
+
+  const id = uuid();
+  await db.insertBroadcast({
+    id, title, body, channel, audience,
+    target_user_id: targetUser ? targetUser.id : null,
+    created_at: Date.now()
+  });
+  res.json({ id, ok: true });
+
+  // Email is sent after responding (same fire-and-forget pattern as the
+  // welcome email on signup) so a large user list can't make the admin's
+  // request hang or time out.
+  if (channel === 'email' || channel === 'both') {
+    (async () => {
+      const recipients = audience === 'user' ? [targetUser] : await db.listAllUsersBasic();
+      for (const u of recipients) {
+        if (!u || !u.email) continue;
+        try { await sendMail(u.email, title, body); }
+        catch (e) { console.error('Broadcast email failed for', u.email, e.message); }
+      }
+    })();
+  }
+}));
+
+app.get('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
+  res.json({ broadcasts: await db.listBroadcasts() });
+}));
+
+/* ---------------- announcements (recipient side) ---------------- */
+app.get('/api/announcements', auth, wrap(async (req, res) => {
+  res.json({ announcements: await db.listAnnouncementsForUser(req.userId) });
+}));
+
+app.post('/api/announcements/:id/read', auth, wrap(async (req, res) => {
+  await db.markBroadcastRead(req.params.id, req.userId);
+  res.json({ ok: true });
+}));
+
+app.post('/api/announcements/read-all', auth, wrap(async (req, res) => {
+  await db.markAllBroadcastsRead(req.userId, Date.now());
+  res.json({ ok: true });
+}));
+
 /* ---------------- documents ---------------- */
 app.get('/api/documents', auth, wrap(async (req, res) => {
   const docs = await db.listDocumentsByUser(req.userId);

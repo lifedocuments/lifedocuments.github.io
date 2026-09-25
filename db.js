@@ -145,6 +145,30 @@ async function init() {
       milestone INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_sub_notified_lookup ON sub_notified(subscription_id, milestone);
+
+    -- Admin Broadcast/Announcement tool: the admin writes one message and
+    -- chooses, per broadcast, whether it goes by email, shows in-app (bell
+    -- icon + inbox), or both — and whether it goes to every account or one
+    -- specific account. broadcast_reads only gets a row once a recipient
+    -- actually opens their inbox, rather than fanning out a row per user at
+    -- send time, so "unread" is just "no row here yet" for that user.
+    CREATE TABLE IF NOT EXISTS broadcasts(
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      channel TEXT NOT NULL DEFAULT 'both',
+      audience TEXT NOT NULL DEFAULT 'all',
+      target_user_id TEXT REFERENCES users(id),
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_broadcasts_created ON broadcasts(created_at);
+    CREATE TABLE IF NOT EXISTS broadcast_reads(
+      broadcast_id TEXT NOT NULL REFERENCES broadcasts(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      read_at BIGINT NOT NULL,
+      PRIMARY KEY (broadcast_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_broadcast_reads_user ON broadcast_reads(user_id);
   `);
 }
 
@@ -454,5 +478,60 @@ module.exports = {
   },
   async deleteNotifiedByDocument(docId) {
     await pool.query('DELETE FROM notified WHERE document_id=$1', [docId]);
+  },
+
+  // ---- admin broadcasts / announcements ----
+  async insertBroadcast(b) {
+    await pool.query(
+      `INSERT INTO broadcasts(id,title,body,channel,audience,target_user_id,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [b.id, b.title, b.body, b.channel, b.audience, b.target_user_id || null, b.created_at]
+    );
+  },
+  async listBroadcasts(limit) {
+    const r = await pool.query(
+      `SELECT b.*, u.name AS target_name, u.email AS target_email
+       FROM broadcasts b LEFT JOIN users u ON u.id = b.target_user_id
+       ORDER BY b.created_at DESC LIMIT $1`,
+      [limit || 50]
+    );
+    return r.rows;
+  },
+  async listAllUsersBasic() {
+    const r = await pool.query('SELECT id, name, email FROM users');
+    return r.rows;
+  },
+  // Every broadcast this account can see in its in-app inbox (channel
+  // 'inapp' or 'both', and either sent to everyone or targeted at them),
+  // newest first, each flagged with whether they've opened their inbox
+  // since it went out.
+  async listAnnouncementsForUser(userId) {
+    const r = await pool.query(
+      `SELECT b.id, b.title, b.body, b.created_at, (br.user_id IS NOT NULL) AS read
+       FROM broadcasts b
+       LEFT JOIN broadcast_reads br ON br.broadcast_id = b.id AND br.user_id = $1
+       WHERE (b.channel = 'inapp' OR b.channel = 'both')
+         AND (b.audience = 'all' OR b.target_user_id = $1)
+       ORDER BY b.created_at DESC LIMIT 50`,
+      [userId]
+    );
+    return r.rows;
+  },
+  async markBroadcastRead(broadcastId, userId, ts) {
+    await pool.query(
+      `INSERT INTO broadcast_reads(broadcast_id,user_id,read_at) VALUES($1,$2,$3)
+       ON CONFLICT (broadcast_id,user_id) DO NOTHING`,
+      [broadcastId, userId, ts || Date.now()]
+    );
+  },
+  async markAllBroadcastsRead(userId, ts) {
+    await pool.query(
+      `INSERT INTO broadcast_reads(broadcast_id,user_id,read_at)
+       SELECT b.id, $1, $2 FROM broadcasts b
+       WHERE (b.channel = 'inapp' OR b.channel = 'both')
+         AND (b.audience = 'all' OR b.target_user_id = $1)
+       ON CONFLICT (broadcast_id,user_id) DO NOTHING`,
+      [userId, ts || Date.now()]
+    );
   }
 };

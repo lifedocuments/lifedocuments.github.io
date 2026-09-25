@@ -7,6 +7,7 @@ const multer = require('multer');
 const { v4: uuid } = require('uuid');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
+const webpush = require('web-push');
 const db = require('./db');
 
 const app = express();
@@ -23,6 +24,45 @@ const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
 function sendMail(to, subject, text) {
   if (!transporter) return Promise.reject(new Error('SMTP not configured on the server (.env)'));
   return transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
+}
+
+/* ---------------- push notifications (admin phone alerts) ---------------- */
+// Real phone notifications (even with the app closed), e.g. "a new user just
+// signed up" — separate from the email/in-app broadcast system above, and
+// off entirely unless VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are set in .env.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(process.env.VAPID_CONTACT || 'mailto:admin@example.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+// Sends to every device the admin has enabled notifications on. Never
+// throws — a subscription that's gone stale (the browser/OS revoked it) is
+// just quietly removed instead of failing the caller.
+async function notifyAdminPush(title, body, url) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  try {
+    const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
+    if (!adminEmail) return;
+    const admin = await db.findUserByEmail(adminEmail);
+    if (!admin) return;
+    const subs = await db.listPushSubscriptionsByUser(admin.id);
+    for (const s of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          JSON.stringify({ title, body, url })
+        );
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          await db.deletePushSubscriptionByEndpoint(s.endpoint).catch(() => {});
+        } else {
+          console.error('Push send failed:', e.message);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('notifyAdminPush failed:', e.message);
+  }
 }
 
 /* ---------------- document photo scanning (Claude vision, optional) ---------------- */
@@ -149,6 +189,7 @@ app.post('/api/signup', wrap(async (req, res) => {
     (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
     '\n\n\u2014 Life Documents'
   ).catch(e => console.error('Welcome email failed for', emailNorm, e.message));
+  notifyAdminPush('New signup on Life Documents', name + ' (' + emailNorm + ') just created an account.', appLink);
 }));
 
 app.post('/api/login', wrap(async (req, res) => {
@@ -389,6 +430,60 @@ app.post('/api/announcements/:id/read', auth, wrap(async (req, res) => {
 app.post('/api/announcements/read-all', auth, wrap(async (req, res) => {
   await db.markAllBroadcastsRead(req.userId, Date.now());
   res.json({ ok: true });
+}));
+
+/* ---------------- push notification subscription (admin only) ---------------- */
+app.get('/api/push/vapid-public-key', auth, requireAdmin, wrap(async (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY || null });
+}));
+
+app.post('/api/admin/push-subscribe', auth, requireAdmin, wrap(async (req, res) => {
+  const s = req.body || {};
+  if (!s.endpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) {
+    return res.status(400).json({ error: 'That subscription looks invalid.' });
+  }
+  await db.insertPushSubscription({
+    id: uuid(), user_id: req.userId, endpoint: s.endpoint,
+    p256dh: s.keys.p256dh, auth: s.keys.auth, created_at: Date.now()
+  });
+  res.json({ ok: true });
+}));
+
+/* ---------------- suggestions (user feedback, optional attachment) ---------------- */
+const uploadSuggestion = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\//.test(file.mimetype) || file.mimetype === 'application/pdf') return cb(null, true);
+    cb(new Error('Only a photo or PDF can be attached.'));
+  }
+});
+
+app.post('/api/suggestions', auth, uploadSuggestion.single('file'), wrap(async (req, res) => {
+  const message = String((req.body || {}).message || '').trim();
+  if (!message) return res.status(400).json({ error: 'Write your suggestion first.' });
+  const id = uuid();
+  await db.insertSuggestion({
+    id, user_id: req.userId, message: message.slice(0, 2000),
+    file_name: req.file ? req.file.originalname : null,
+    file_mime: req.file ? req.file.mimetype : null,
+    file_size: req.file ? req.file.size : null,
+    file_data: req.file ? req.file.buffer : null,
+    created_at: Date.now()
+  });
+  res.json({ ok: true });
+}));
+
+app.get('/api/admin/suggestions', auth, requireAdmin, wrap(async (req, res) => {
+  res.json({ suggestions: await db.listSuggestionsForAdmin() });
+}));
+
+app.get('/api/admin/suggestions/:id/file', auth, requireAdmin, wrap(async (req, res) => {
+  const f = await db.findSuggestionFile(req.params.id);
+  if (!f || !f.file_data) return res.status(404).end();
+  res.setHeader('Content-Type', f.file_mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', 'inline; filename="' + (f.file_name || 'attachment').replace(/"/g, '') + '"');
+  res.send(f.file_data);
 }));
 
 /* ---------------- documents ---------------- */

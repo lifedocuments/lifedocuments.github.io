@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   box-sizing:border-box;
@@ -24,8 +24,8 @@
   --hero-green:#0F6B4F; --hero-green-fg:#FFFFFF;
   --hero-none:#DCE6E0; --hero-none-fg:#12241D;
   --shadow:0 1px 2px rgba(18,36,29,.06);
-  --display:'Bricolage Grotesque','Trebuchet MS','Segoe UI',system-ui,sans-serif;
-  --body:'Source Sans 3','Segoe UI',system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','Noto Sans Bengali','Trebuchet MS','Segoe UI',system-ui,sans-serif;
+  --body:'Source Sans 3','Noto Sans Bengali','Segoe UI',system-ui,-apple-system,sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -489,6 +489,16 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <p class="msg info" style="margin:6px 0" data-i18n="acct_about_lede">Learn what Life Documents is and how it helps.</p>
         <button type="button" class="btn small" id="acctAboutBtn" data-i18n="acct_about_btn">About Life Documents</button>
       </div>
+      <div class="field">
+        <span data-i18n="acct_share_label">Share the app</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="acct_share_lede">Invite friends and family to use Life Documents too.</p>
+        <button type="button" class="btn small" id="acctShareBtn" data-i18n="acct_share_btn">Share with Friends & Family</button>
+      </div>
+      <div class="field">
+        <span data-i18n="acct_suggest_label">Suggestions</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="acct_suggest_lede">Have an idea or found a problem? Let us know — you can attach a photo or PDF.</p>
+        <button type="button" class="btn small" id="acctSuggestBtn" data-i18n="acct_suggest_btn">Send a suggestion</button>
+      </div>
       <p id="acctMsg" class="msg" role="alert"></p>
     </div>
     <div class="df"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
@@ -511,6 +521,32 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <p class="about-tagline" data-i18n="about_tagline">Life Documents — Store it. Track it. Never miss it.</p>
   </div>
   <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
+</dialog>
+
+<dialog id="suggestDlg" aria-labelledby="suggestTitle">
+  <div class="dh"><h2 id="suggestTitle" data-i18n="suggest_title">Send a suggestion</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <label class="field"><span data-i18n="suggest_message_label">Your suggestion</span><textarea id="sg-message" class="input" maxlength="2000" rows="5" data-i18n-ph="suggest_message_ph"></textarea></label>
+    <div class="field">
+      <span data-i18n="suggest_attach_label">Attach a photo or PDF (optional)</span>
+      <input type="file" id="sg-file" accept="image/*,application/pdf" style="margin-top:6px">
+      <small data-i18n="suggest_attach_hint">Up to 5 MB.</small>
+    </div>
+    <p id="suggestMsg" class="msg" role="alert"></p>
+  </div>
+  <div class="df"><button class="btn primary" type="button" id="suggestSendBtn" data-i18n="suggest_send_btn">Send</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
+</dialog>
+
+<dialog id="renewDlg" aria-labelledby="renewTitle">
+  <div class="dh"><h2 id="renewTitle" data-i18n="renew_title">Renew this document</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="renew_lede">Update the expiry date after renewing — the old details stay saved in this document's history.</p>
+    <label class="field"><span data-i18n="renew_new_expiry">New expiry date</span><input type="date" id="renew-expiry" class="input"></label>
+    <label class="field"><span data-i18n="renew_new_number">New document number (optional)</span><input type="text" id="renew-number" class="input" maxlength="60"></label>
+    <label class="field"><span data-i18n="renew_new_issue">New issue date (optional)</span><input type="date" id="renew-issue" class="input"></label>
+    <p id="renewMsg" class="msg" role="alert"></p>
+  </div>
+  <div class="df"><button class="btn primary" type="button" id="renewSaveBtn" data-i18n="renew_save_btn">Save renewal</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
 </dialog>
 
 <dialog id="profilesDlg" aria-labelledby="profilesTitle">
@@ -820,7 +856,22 @@ var STR = {
     sub_form_title_add:'Add subscription', sub_form_title_edit:'Edit subscription', sub_no_due_date:'No due date set',
     sub_last_paid:'Last paid', sub_mark_paid:'Mark as paid', sub_renewed_toast:'Marked as paid — next due date updated',
     toast_sub_saved:'Subscription saved', err_could_not_load_subs:'Could not load your subscriptions.',
-    btn_download:'Download', btn_share:'Share', toast_copied_summary:'Summary copied'
+    btn_download:'Download', btn_share:'Share', toast_copied_summary:'Summary copied',
+    btn_renewed:'Renewed', renew_title:'Renew this document',
+    renew_lede:'Update the expiry date after renewing — the old details stay saved in this document’s history.',
+    renew_new_expiry:'New expiry date', renew_new_number:'New document number (optional)', renew_new_issue:'New issue date (optional)',
+    renew_save_btn:'Save renewal', err_give_new_expiry:'Pick the new expiry date.',
+    err_new_expiry_must_be_later:'The new expiry date should be after the current one.', toast_renewed:'Document renewed',
+    acct_share_label:'Share the app', acct_share_lede:'Invite friends and family to use Life Documents too.',
+    acct_share_btn:'Share with Friends & Family',
+    share_app_text:'I’m using Life Documents to keep track of my important documents and never miss a renewal. Try it:',
+    toast_link_copied:'Link copied',
+    acct_suggest_label:'Suggestions', acct_suggest_lede:'Have an idea or found a problem? Let us know — you can attach a photo or PDF.',
+    acct_suggest_btn:'Send a suggestion', suggest_title:'Send a suggestion', suggest_message_label:'Your suggestion',
+    suggest_message_ph:'Tell us what you think, or what you’d like to see…',
+    suggest_attach_label:'Attach a photo or PDF (optional)', suggest_attach_hint:'Up to 5 MB.',
+    suggest_send_btn:'Send', err_write_suggestion:'Write your suggestion first.', err_file_too_big:'That file is larger than 5 MB.',
+    toast_suggestion_sent:'Thanks! Your suggestion was sent.'
   },
   bn: {
     si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
@@ -926,7 +977,22 @@ var STR = {
     sub_form_title_add:'সাবস্ক্রিপশন যোগ করুন', sub_form_title_edit:'সাবস্ক্রিপশন সম্পাদনা করুন', sub_no_due_date:'কোনো তারিখ নির্ধারণ করা নেই',
     sub_last_paid:'সর্বশেষ পরিশোধ', sub_mark_paid:'পরিশোধ হয়েছে বলে চিহ্নিত করুন', sub_renewed_toast:'পরিশোধ হয়েছে হিসেবে চিহ্নিত হয়েছে — পরবর্তী তারিখ আপডেট হয়েছে',
     toast_sub_saved:'সাবস্ক্রিপশন সংরক্ষিত হয়েছে', err_could_not_load_subs:'আপনার সাবস্ক্রিপশন লোড করা যায়নি।',
-    btn_download:'ডাউনলোড করুন', btn_share:'শেয়ার করুন', toast_copied_summary:'সারাংশ কপি হয়েছে'
+    btn_download:'ডাউনলোড করুন', btn_share:'শেয়ার করুন', toast_copied_summary:'সারাংশ কপি হয়েছে',
+    btn_renewed:'নবায়ন হয়েছে', renew_title:'ডকুমেন্ট নবায়ন করুন',
+    renew_lede:'নবায়নের পর নতুন মেয়াদ শেষের তারিখ দিন — পুরনো তথ্য এই ডকুমেন্টের history-তে সংরক্ষিত থেকে যাবে।',
+    renew_new_expiry:'নতুন মেয়াদ শেষের তারিখ', renew_new_number:'নতুন ডকুমেন্ট নম্বর (ঐচ্ছিক)', renew_new_issue:'নতুন ইস্যুর তারিখ (ঐচ্ছিক)',
+    renew_save_btn:'নবায়ন সংরক্ষণ করুন', err_give_new_expiry:'নতুন মেয়াদ শেষের তারিখ দিন।',
+    err_new_expiry_must_be_later:'নতুন মেয়াদ শেষের তারিখ বর্তমান তারিখের পরে হতে হবে।', toast_renewed:'ডকুমেন্ট নবায়ন করা হয়েছে',
+    acct_share_label:'অ্যাপ শেয়ার করুন', acct_share_lede:'বন্ধু ও পরিবারকে Life Documents ব্যবহারের আমন্ত্রণ জানান।',
+    acct_share_btn:'বন্ধু ও পরিবারের সাথে শেয়ার করুন',
+    share_app_text:'আমি Life Documents ব্যবহার করি আমার গুরুত্বপূর্ণ ডকুমেন্ট গুছিয়ে রাখতে এবং কোনো নবায়ন যেন মিস না হয় তার জন্য। আপনিও দেখুন:',
+    toast_link_copied:'লিংক কপি করা হয়েছে',
+    acct_suggest_label:'পরামর্শ', acct_suggest_lede:'কোনো আইডিয়া আছে বা কোনো সমস্যা পেয়েছেন? আমাদের জানান — চাইলে একটি ছবি বা PDF যুক্ত করতে পারেন।',
+    acct_suggest_btn:'পরামর্শ পাঠান', suggest_title:'পরামর্শ পাঠান', suggest_message_label:'আপনার পরামর্শ',
+    suggest_message_ph:'আপনার মতামত লিখুন, বা কী দেখতে চান তা জানান…',
+    suggest_attach_label:'একটি ছবি বা PDF যুক্ত করুন (ঐচ্ছিক)', suggest_attach_hint:'সর্বোচ্চ 5 MB।',
+    suggest_send_btn:'পাঠান', err_write_suggestion:'প্রথমে আপনার পরামর্শ লিখুন।', err_file_too_big:'ফাইলটি 5 MB-এর বেশি বড়।',
+    toast_suggestion_sent:'ধন্যবাদ! আপনার পরামর্শ পাঠানো হয়েছে।'
   }
 };
 var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
@@ -1010,7 +1076,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -1171,7 +1237,11 @@ $('#adminBtn').addEventListener('click',function(){ adminShowUsers(); $('#adminD
 function adminShowUsers(){
   $('#adminTitle').textContent='Admin — all users';
   $('#adminBody').innerHTML=
-    '<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button type="button" class="btn small" id="adminBroadcastBtn">📢 Send Announcement</button></div>'+
+    '<div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+
+      '<button type="button" class="btn small" id="adminNotifyBtn">🔔 Notifications</button>'+
+      '<button type="button" class="btn small" id="adminSuggestBtn">💡 Suggestions</button>'+
+      '<button type="button" class="btn small" id="adminBroadcastBtn">📢 Send Announcement</button>'+
+    '</div>'+
     '<div class="admin-stats" id="adminStats">'+
       '<div class="admin-stat"><b>—</b><span>Total users</span></div>'+
       '<div class="admin-stat"><b>—</b><span>Total documents</span></div>'+
@@ -1202,6 +1272,8 @@ function adminShowUsers(){
   adminLoadUsers();
 
   $('#adminBroadcastBtn').addEventListener('click',adminShowBroadcast);
+  $('#adminSuggestBtn').addEventListener('click',adminShowSuggestions);
+  $('#adminNotifyBtn').addEventListener('click',adminShowNotifications);
 
   $('#adminSearch').addEventListener('input',function(e){
     adminQuery=e.target.value;
@@ -1378,6 +1450,102 @@ function adminLoadBroadcastHistory(){
         '<p style="margin:6px 0 0;white-space:pre-wrap">'+esc(b.body)+'</p></li>';
     }).join('')+'</ul>';
   }).catch(function(){ if($('#bcHistory'))$('#bcHistory').innerHTML='<p class="msg">Could not load announcement history.</p>'; });
+}
+
+/* ---------------- Admin: user suggestions ---------------- */
+function adminShowSuggestions(){
+  $('#adminTitle').textContent='Admin — suggestions';
+  $('#adminBody').innerHTML=
+    '<button type="button" class="btn small admin-back" id="adminBackFromSuggestions">&larr; All users</button>'+
+    '<h3 style="margin:16px 0 6px">User suggestions</h3>'+
+    '<div id="sgList"><p class="msg info">Loading…</p></div>';
+  $('#adminBackFromSuggestions').addEventListener('click',adminShowUsers);
+  adminLoadSuggestions();
+}
+function adminLoadSuggestions(){
+  var el=$('#sgList'); if(!el)return;
+  api('/api/admin/suggestions').then(function(data){
+    if(!$('#sgList'))return;
+    var list=data.suggestions||[];
+    if(!list.length){ $('#sgList').innerHTML='<p class="msg info">No suggestions yet.</p>'; return; }
+    $('#sgList').innerHTML='<ul class="admin-list">'+list.map(function(s){
+      var attach = s.file_name ? ('<br><a href="#" data-sgfile="'+esc(s.id)+'">📎 '+esc(s.file_name)+'</a>') : '';
+      return '<li style="padding:10px 12px;border:1px solid var(--line);border-radius:10px">'+
+        '<span class="sub">'+esc(s.name||'')+' ('+esc(s.email||'')+') · '+esc(adminDateTime(s.created_at))+'</span>'+
+        '<p style="margin:6px 0 0;white-space:pre-wrap">'+esc(s.message)+'</p>'+attach+'</li>';
+    }).join('')+'</ul>';
+    $('#sgList').querySelectorAll('[data-sgfile]').forEach(function(a){
+      a.addEventListener('click',function(e){
+        e.preventDefault();
+        fetch(API_BASE.replace(/\/$/,'')+'/api/admin/suggestions/'+a.dataset.sgfile+'/file',{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
+          if(!r.ok)throw new Error();return r.blob();
+        }).then(function(b){ var url=URL.createObjectURL(b);window.open(url,'_blank','noopener'); })
+        .catch(function(){toast('Could not open this file');});
+      });
+    });
+  }).catch(function(){ if($('#sgList'))$('#sgList').innerHTML='<p class="msg">Could not load suggestions.</p>'; });
+}
+
+/* ---------------- Admin: phone notifications (new signups) ---------------- */
+function urlBase64ToUint8Array(base64String){
+  var padding='='.repeat((4-base64String.length%4)%4);
+  var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  var raw=atob(base64), out=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+function adminShowNotifications(){
+  $('#adminTitle').textContent='Admin — notifications';
+  $('#adminBody').innerHTML=
+    '<button type="button" class="btn small admin-back" id="adminBackFromNotify">&larr; All users</button>'+
+    '<h3 style="margin:16px 0 6px">Phone notifications for new signups</h3>'+
+    '<p class="msg info">Turn this on to get a push notification on this device whenever someone new signs up — even with the app closed.</p>'+
+    '<p id="notifyStatus" class="msg info">Checking…</p>'+
+    '<div class="df" style="justify-content:flex-start"><button type="button" class="btn primary" id="notifyEnableBtn">Enable notifications on this device</button></div>'+
+    '<p id="notifyMsg" class="msg" role="alert"></p>';
+  $('#adminBackFromNotify').addEventListener('click',adminShowUsers);
+  $('#notifyEnableBtn').addEventListener('click',enablePushNotifications);
+  refreshNotifyStatus();
+}
+function refreshNotifyStatus(){
+  var el=$('#notifyStatus'); if(!el)return;
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    el.textContent='Push notifications are not supported in this browser.';
+    return;
+  }
+  if(typeof Notification!=='undefined' && Notification.permission==='denied'){
+    el.textContent='Notifications are blocked for this app in your browser/phone settings. Allow notifications, then reload this page.';
+    return;
+  }
+  navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){
+    if(!$('#notifyStatus'))return;
+    $('#notifyStatus').textContent = sub ? 'Notifications are ON for this device.' : 'Notifications are currently OFF for this device.';
+  }).catch(function(){ if($('#notifyStatus'))$('#notifyStatus').textContent=''; });
+}
+function enablePushNotifications(){
+  var btn=$('#notifyEnableBtn'),msg=$('#notifyMsg');
+  msg.textContent='';
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    msg.textContent='Push notifications are not supported in this browser.';
+    return;
+  }
+  btn.disabled=true;btn.textContent='Enabling…';
+  Notification.requestPermission().then(function(perm){
+    if(perm!=='granted') return Promise.reject({error:'Notification permission was not granted.'});
+    return api('/api/push/vapid-public-key');
+  }).then(function(data){
+    if(!data.publicKey) return Promise.reject({error:'Push notifications are not set up on the server yet.'});
+    return navigator.serviceWorker.ready.then(function(reg){
+      return reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(data.publicKey)});
+    });
+  }).then(function(sub){
+    return api('/api/admin/push-subscribe',{method:'POST',body:JSON.stringify(sub.toJSON())});
+  }).then(function(){
+    toast('Notifications enabled');
+    refreshNotifyStatus();
+  }).catch(function(e){ if($('#notifyMsg'))$('#notifyMsg').textContent=(e&&e.error)||'Could not enable notifications.'; }).then(function(){
+    if($('#notifyEnableBtn')){$('#notifyEnableBtn').disabled=false;$('#notifyEnableBtn').textContent='Enable notifications on this device';}
+  });
 }
 
 function loadDocs(){
@@ -1958,11 +2126,14 @@ function openDetail(id){
   var cl=calLink(d);
   $('#viewActions').innerHTML=
     '<button class="btn" type="button" id="editBtn">'+t('btn_edit')+'</button>'+
+    (d.expiry?'<button class="btn" type="button" id="renewBtn">'+t('btn_renewed')+'</button>':'')+
     '<button class="btn" type="button" id="shareBtn">'+t('btn_share')+'</button>'+
     '<a class="btn" target="_blank" rel="noopener" href="'+esc(whatsAppLink(d))+'">'+t('share_whatsapp')+'</a>'+
     (cl?'<a class="btn" target="_blank" rel="noopener" href="'+esc(cl)+'">'+t('hero_add_calendar')+'</a>':'')+
     '<span class="grow"></span><button class="btn danger" type="button" id="delBtn">'+t('btn_delete')+'</button>';
   $('#shareBtn').addEventListener('click',function(){shareDoc(d);});
+  var rnBtn=$('#renewBtn');
+  if(rnBtn) rnBtn.addEventListener('click',function(){ openRenewDialog(d); });
 
   var shown=false,rb=$('#revealBtn');
   if(rb){
@@ -2469,7 +2640,7 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 
@@ -2562,6 +2733,76 @@ $('#introReplayBtn').addEventListener('click',function(){
 /* ---------------- About ---------------- */
 $('#acctAboutBtn').addEventListener('click',function(){ $('#aboutDlg').showModal(); });
 $('#lockAboutBtn').addEventListener('click',function(){ $('#aboutDlg').showModal(); });
+
+/* ---------------- Share the app with Friends & Family ---------------- */
+$('#acctShareBtn').addEventListener('click',function(){
+  var shareUrl=location.origin+'/';
+  var text=t('share_app_text');
+  if(navigator.share){
+    navigator.share({title:'Life Documents',text:text,url:shareUrl}).catch(function(){});
+  } else {
+    try{
+      navigator.clipboard.writeText(text+' '+shareUrl).then(function(){toast(t('toast_link_copied'));},function(){toast(shareUrl);});
+    }catch(e){toast(shareUrl);}
+  }
+});
+
+/* ---------------- Suggestions (with optional photo/PDF attachment) ---------------- */
+$('#acctSuggestBtn').addEventListener('click',function(){
+  $('#sg-message').value='';$('#sg-file').value='';$('#suggestMsg').textContent='';
+  $('#suggestSendBtn').disabled=false;$('#suggestSendBtn').textContent=t('suggest_send_btn');
+  $('#suggestDlg').showModal();
+});
+$('#suggestSendBtn').addEventListener('click',function(){
+  var msg=$('#suggestMsg'),btn=$('#suggestSendBtn');
+  msg.textContent='';
+  var message=$('#sg-message').value.trim();
+  if(!message){msg.textContent=t('err_write_suggestion');return;}
+  var file=$('#sg-file').files[0];
+  if(file&&file.size>5*1024*1024){msg.textContent=t('err_file_too_big');return;}
+  btn.disabled=true;btn.textContent=t('sending');
+  var fd=new FormData();fd.append('message',message);
+  if(file)fd.append('file',file);
+  api('/api/suggestions',{method:'POST',body:fd}).then(function(){
+    $('#suggestDlg').close();toast(t('toast_suggestion_sent'));
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){
+    if($('#suggestSendBtn')){$('#suggestSendBtn').disabled=false;$('#suggestSendBtn').textContent=t('suggest_send_btn');}
+  });
+});
+
+/* ---------------- Renew a document (update its expiry in place) ---------------- */
+function openRenewDialog(d){
+  $('#renew-expiry').value='';
+  $('#renew-number').value=d.number||'';
+  $('#renew-issue').value='';
+  $('#renewMsg').textContent='';
+  $('#renewSaveBtn').disabled=false;$('#renewSaveBtn').textContent=t('renew_save_btn');
+  $('#renewDlg').dataset.docId=d.id;
+  $('#renewDlg').showModal();
+}
+$('#renewSaveBtn').addEventListener('click',function(){
+  var docId=$('#renewDlg').dataset.docId;
+  var d=docs.find(function(x){return x.id===docId;});
+  if(!d)return;
+  var msg=$('#renewMsg'),btn=$('#renewSaveBtn');
+  msg.textContent='';
+  var newExpiry=$('#renew-expiry').value;
+  if(!newExpiry){msg.textContent=t('err_give_new_expiry');return;}
+  if(d.expiry&&newExpiry<=d.expiry){msg.textContent=t('err_new_expiry_must_be_later');return;}
+  var newNumber=$('#renew-number').value.trim();
+  var newIssue=$('#renew-issue').value;
+  var payload={type:d.type,title:d.title,holder:d.holder||'',number:newNumber||d.number||'',
+    issue:newIssue||d.issue||'',expiry:newExpiry,lead:d.lead||30,notes:d.notes||'',
+    category:d.category||'',profileId:d.profile_id||null,reminderDays:(d.reminder_days||[])};
+  btn.disabled=true;btn.textContent=t('saving');
+  api('/api/documents/'+d.id,{method:'PUT',body:JSON.stringify(payload)}).then(function(){
+    $('#renewDlg').close();
+    var vd=$('#viewDlg');if(vd.open)vd.close();
+    toast(t('toast_renewed'));loadDocs();
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){
+    if($('#renewSaveBtn')){$('#renewSaveBtn').disabled=false;$('#renewSaveBtn').textContent=t('renew_save_btn');}
+  });
+});
 
 /* ---------------- boot ---------------- */
 var resetToken=new URLSearchParams(location.search).get('reset');

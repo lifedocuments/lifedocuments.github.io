@@ -169,6 +169,36 @@ async function init() {
       PRIMARY KEY (broadcast_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS idx_broadcast_reads_user ON broadcast_reads(user_id);
+
+    -- Web Push subscriptions, so the admin can get a real phone notification
+    -- (even with the app closed) when something happens, e.g. a new signup.
+    -- Keyed by user_id (not hardcoded to one row) so it keeps working if
+    -- more than one admin account is ever added later.
+    CREATE TABLE IF NOT EXISTS push_subscriptions(
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      endpoint TEXT UNIQUE NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+    -- User-submitted suggestions/feedback, with an optional single photo or
+    -- PDF attachment (stored the same way document files are — as bytes in
+    -- the database, not on local disk, since Render's free tier disk isn't
+    -- persistent).
+    CREATE TABLE IF NOT EXISTS suggestions(
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      message TEXT NOT NULL,
+      file_name TEXT,
+      file_mime TEXT,
+      file_size INTEGER,
+      file_data BYTEA,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_suggestions_created ON suggestions(created_at);
   `);
 }
 
@@ -533,5 +563,46 @@ module.exports = {
        ON CONFLICT (broadcast_id,user_id) DO NOTHING`,
       [userId, ts || Date.now()]
     );
+  },
+
+  // ---- push subscriptions (admin phone notifications) ----
+  async insertPushSubscription(s) {
+    await pool.query(
+      `INSERT INTO push_subscriptions(id,user_id,endpoint,p256dh,auth,created_at)
+       VALUES($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (endpoint) DO UPDATE SET user_id=$2, p256dh=$4, auth=$5`,
+      [s.id, s.user_id, s.endpoint, s.p256dh, s.auth, s.created_at]
+    );
+  },
+  async listPushSubscriptionsByUser(userId) {
+    const r = await pool.query('SELECT * FROM push_subscriptions WHERE user_id=$1', [userId]);
+    return r.rows;
+  },
+  async deletePushSubscriptionByEndpoint(endpoint) {
+    await pool.query('DELETE FROM push_subscriptions WHERE endpoint=$1', [endpoint]);
+  },
+
+  // ---- suggestions ----
+  async insertSuggestion(s) {
+    await pool.query(
+      `INSERT INTO suggestions(id,user_id,message,file_name,file_mime,file_size,file_data,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [s.id, s.user_id, s.message, s.file_name || null, s.file_mime || null, s.file_size || null, s.file_data || null, s.created_at]
+    );
+  },
+  // Newest first, joined with the sender's name/email — never selects the
+  // file bytes here, so listing stays cheap even with large attachments.
+  async listSuggestionsForAdmin(limit) {
+    const r = await pool.query(
+      `SELECT s.id, s.message, s.file_name, s.created_at, u.name, u.email
+       FROM suggestions s JOIN users u ON u.id = s.user_id
+       ORDER BY s.created_at DESC LIMIT $1`,
+      [limit || 100]
+    );
+    return r.rows;
+  },
+  async findSuggestionFile(id) {
+    const r = await pool.query('SELECT file_name, file_mime, file_data FROM suggestions WHERE id=$1', [id]);
+    return r.rows[0] || null;
   }
 };

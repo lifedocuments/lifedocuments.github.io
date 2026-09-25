@@ -45,9 +45,27 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
     console.error('Push notifications are disabled — VAPID_CONTACT must start with "mailto:" or "https://":', e.message);
   }
 }
-// Sends to every device the admin has enabled notifications on. Never
-// throws — a subscription that's gone stale (the browser/OS revoked it) is
-// just quietly removed instead of failing the caller.
+// Sends one push payload to a list of {endpoint,p256dh,auth} subscription
+// rows. Never throws — a subscription that's gone stale (the browser/OS
+// revoked it) is just quietly removed instead of failing the caller.
+async function sendPushToSubscriptions(subs, title, body, url) {
+  if (!vapidReady) return;
+  for (const s of subs) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        JSON.stringify({ title, body, url })
+      );
+    } catch (e) {
+      if (e.statusCode === 404 || e.statusCode === 410) {
+        await db.deletePushSubscriptionByEndpoint(s.endpoint).catch(() => {});
+      } else {
+        console.error('Push send failed:', e.message);
+      }
+    }
+  }
+}
+// Sends to every device the admin has enabled notifications on.
 async function notifyAdminPush(title, body, url) {
   if (!vapidReady) return;
   try {
@@ -56,20 +74,7 @@ async function notifyAdminPush(title, body, url) {
     const admin = await db.findUserByEmail(adminEmail);
     if (!admin) return;
     const subs = await db.listPushSubscriptionsByUser(admin.id);
-    for (const s of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify({ title, body, url })
-        );
-      } catch (e) {
-        if (e.statusCode === 404 || e.statusCode === 410) {
-          await db.deletePushSubscriptionByEndpoint(s.endpoint).catch(() => {});
-        } else {
-          console.error('Push send failed:', e.message);
-        }
-      }
-    }
+    await sendPushToSubscriptions(subs, title, body, url);
   } catch (e) {
     console.error('notifyAdminPush failed:', e.message);
   }
@@ -382,8 +387,11 @@ app.get('/api/admin/files/:id', auth, requireAdmin, wrap(async (req, res) => {
 // The admin writes one title+message and picks, per broadcast, the channel
 // (email, in-app, or both) and the audience (everyone, or one specific
 // account) — the recipient doesn't get a separate preference for this;
-// whatever the admin picked for that broadcast is what goes out.
-function isValidBroadcastChannel(c) { return c === 'email' || c === 'inapp' || c === 'both'; }
+// whatever the admin picked for that broadcast is what goes out. Push is a
+// third, independent toggle (sendPush) on top of that — an admin can send
+// email+push, in-app+push, all three, or push on its own.
+// 'none' means neither email nor in-app were picked (a push-only broadcast).
+function isValidBroadcastChannel(c) { return c === 'email' || c === 'inapp' || c === 'both' || c === 'none'; }
 
 app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
   const b = req.body || {};
@@ -391,6 +399,10 @@ app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
   const body = String(b.body || '').trim();
   if (!title || !body) return res.status(400).json({ error: 'Write a title and a message.' });
   const channel = isValidBroadcastChannel(b.channel) ? b.channel : 'both';
+  const sendPush = !!b.sendPush;
+  if (channel === 'none' && !sendPush) {
+    return res.status(400).json({ error: 'Pick at least one channel (email, in-app, or push).' });
+  }
   const audience = b.audience === 'user' ? 'user' : 'all';
 
   let targetUser = null;
@@ -402,15 +414,15 @@ app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
 
   const id = uuid();
   await db.insertBroadcast({
-    id, title, body, channel, audience,
+    id, title, body, channel, audience, send_push: sendPush,
     target_user_id: targetUser ? targetUser.id : null,
     created_at: Date.now()
   });
   res.json({ id, ok: true });
 
-  // Email is sent after responding (same fire-and-forget pattern as the
-  // welcome email on signup) so a large user list can't make the admin's
-  // request hang or time out.
+  // Email and push are both sent after responding (same fire-and-forget
+  // pattern as the welcome email on signup) so a large user list can't make
+  // the admin's request hang or time out.
   if (channel === 'email' || channel === 'both') {
     (async () => {
       const recipients = audience === 'user' ? [targetUser] : await db.listAllUsersBasic();
@@ -418,6 +430,19 @@ app.post('/api/admin/broadcasts', auth, requireAdmin, wrap(async (req, res) => {
         if (!u || !u.email) continue;
         try { await sendMail(u.email, title, body); }
         catch (e) { console.error('Broadcast email failed for', u.email, e.message); }
+      }
+    })();
+  }
+  if (sendPush) {
+    (async () => {
+      try {
+        const appLink = process.env.FRONTEND_URL || '';
+        const subs = audience === 'user'
+          ? await db.listPushSubscriptionsByUser(targetUser.id)
+          : await db.listAllPushSubscriptions();
+        await sendPushToSubscriptions(subs, title, body, appLink);
+      } catch (e) {
+        console.error('Broadcast push failed:', e.message);
       }
     })();
   }
@@ -442,11 +467,27 @@ app.post('/api/announcements/read-all', auth, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-/* ---------------- push notification subscription (admin only) ---------------- */
-app.get('/api/push/vapid-public-key', auth, requireAdmin, wrap(async (req, res) => {
+/* ---------------- push notification subscription (any signed-in user) ---------------- */
+// Any signed-in account (admin or regular user) can enable phone push
+// notifications on their own device — admins get new-signup alerts on top,
+// and everyone can receive admin announcements sent with the push channel.
+app.get('/api/push/vapid-public-key', auth, wrap(async (req, res) => {
   res.json({ publicKey: vapidReady ? VAPID_PUBLIC_KEY : null });
 }));
 
+app.post('/api/push-subscribe', auth, wrap(async (req, res) => {
+  const s = req.body || {};
+  if (!s.endpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) {
+    return res.status(400).json({ error: 'That subscription looks invalid.' });
+  }
+  await db.insertPushSubscription({
+    id: uuid(), user_id: req.userId, endpoint: s.endpoint,
+    p256dh: s.keys.p256dh, auth: s.keys.auth, created_at: Date.now()
+  });
+  res.json({ ok: true });
+}));
+// Kept for compatibility with any already-loaded admin frontend that still
+// calls the old admin-specific path.
 app.post('/api/admin/push-subscribe', auth, requireAdmin, wrap(async (req, res) => {
   const s = req.body || {};
   if (!s.endpoint || !s.keys || !s.keys.p256dh || !s.keys.auth) {
@@ -526,6 +567,20 @@ app.post('/api/documents', auth, wrap(async (req, res) => {
     created_at: Date.now()
   });
   res.json({ id });
+
+  // Confirmation email — best-effort, never blocks or fails the request.
+  (async () => {
+    try {
+      const u = await db.findUserById(req.userId);
+      if (u && u.email) {
+        await sendMail(u.email, 'Document added: ' + b.title,
+          'Hi ' + u.name + ',\n\n"' + b.title + '" has been added to your Life Documents vault.' +
+          (b.expiry ? ('\nExpiry date: ' + b.expiry) : '') +
+          '\n\n— Life Documents'
+        );
+      }
+    } catch (e) { console.error('Add-document email failed:', e.message); }
+  })();
 }));
 
 app.put('/api/documents/:id', auth, wrap(async (req, res) => {
@@ -543,7 +598,9 @@ app.put('/api/documents/:id', auth, wrap(async (req, res) => {
   // Renewal: the expiry date moved to a new date. Quietly keep the old
   // number/issue/expiry so it's still there for insurance claims, visa
   // applications, etc. that ask about the previous document.
+  let renewed = false;
   if (d.expiry && patch.expiry && patch.expiry !== d.expiry) {
+    renewed = true;
     const history = Array.isArray(d.history) ? d.history.slice() : [];
     history.push({ number: d.number || '', issue: d.issue || '', expiry: d.expiry, archivedAt: Date.now() });
     patch.history = JSON.stringify(history);
@@ -553,6 +610,22 @@ app.put('/api/documents/:id', auth, wrap(async (req, res) => {
   }
   await db.updateDocument(d.id, patch);
   res.json({ ok: true });
+
+  // Confirmation email for a renewal — best-effort, never blocks or fails
+  // the request.
+  if (renewed) {
+    (async () => {
+      try {
+        const u = await db.findUserById(req.userId);
+        if (u && u.email) {
+          await sendMail(u.email, 'Document renewed: ' + patch.title,
+            'Hi ' + u.name + ',\n\n"' + patch.title + '" has been renewed.\nNew expiry date: ' + patch.expiry +
+            '\n\n— Life Documents'
+          );
+        }
+      } catch (e) { console.error('Renew email failed:', e.message); }
+    })();
+  }
 }));
 
 app.delete('/api/documents/:id', auth, wrap(async (req, res) => {

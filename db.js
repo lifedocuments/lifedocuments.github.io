@@ -159,8 +159,13 @@ async function init() {
       channel TEXT NOT NULL DEFAULT 'both',
       audience TEXT NOT NULL DEFAULT 'all',
       target_user_id TEXT REFERENCES users(id),
+      send_push BOOLEAN NOT NULL DEFAULT false,
       created_at BIGINT NOT NULL
     );
+    -- send_push is a separate on/off toggle from channel (email/inapp/both),
+    -- added after the table already existed in production, so it needs an
+    -- explicit migration for databases created before this column existed.
+    ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS send_push BOOLEAN NOT NULL DEFAULT false;
     CREATE INDEX IF NOT EXISTS idx_broadcasts_created ON broadcasts(created_at);
     CREATE TABLE IF NOT EXISTS broadcast_reads(
       broadcast_id TEXT NOT NULL REFERENCES broadcasts(id),
@@ -513,9 +518,9 @@ module.exports = {
   // ---- admin broadcasts / announcements ----
   async insertBroadcast(b) {
     await pool.query(
-      `INSERT INTO broadcasts(id,title,body,channel,audience,target_user_id,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7)`,
-      [b.id, b.title, b.body, b.channel, b.audience, b.target_user_id || null, b.created_at]
+      `INSERT INTO broadcasts(id,title,body,channel,audience,target_user_id,send_push,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [b.id, b.title, b.body, b.channel, b.audience, b.target_user_id || null, !!b.send_push, b.created_at]
     );
   },
   async listBroadcasts(limit) {
@@ -565,7 +570,7 @@ module.exports = {
     );
   },
 
-  // ---- push subscriptions (admin phone notifications) ----
+  // ---- push subscriptions (phone notifications, any signed-in user) ----
   async insertPushSubscription(s) {
     await pool.query(
       `INSERT INTO push_subscriptions(id,user_id,endpoint,p256dh,auth,created_at)
@@ -576,6 +581,12 @@ module.exports = {
   },
   async listPushSubscriptionsByUser(userId) {
     const r = await pool.query('SELECT * FROM push_subscriptions WHERE user_id=$1', [userId]);
+    return r.rows;
+  },
+  // Every device, across every user — used to push a broadcast sent to
+  // "everyone" with the push channel turned on.
+  async listAllPushSubscriptions() {
+    const r = await pool.query('SELECT * FROM push_subscriptions');
     return r.rows;
   },
   async deletePushSubscriptionByEndpoint(endpoint) {

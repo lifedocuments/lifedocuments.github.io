@@ -480,6 +480,13 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         </div>
       </div>
       <div class="field">
+        <span data-i18n="acct_notify_label">Push notifications</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="acct_notify_lede">Get admin announcements as a notification on this device, even when the app is closed.</p>
+        <p id="userNotifyStatus" class="msg info"></p>
+        <button type="button" class="btn small" id="userNotifyBtn" data-i18n="acct_notify_btn">Enable notifications</button>
+        <p id="userNotifyMsg" class="msg" role="alert"></p>
+      </div>
+      <div class="field">
         <span data-i18n="intro_replay_title">Guided tour</span>
         <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
         <button type="button" class="btn small" id="introReplayBtn" data-i18n="intro_replay_btn">Show intro again</button>
@@ -871,7 +878,15 @@ var STR = {
     suggest_message_ph:'Tell us what you think, or what you’d like to see…',
     suggest_attach_label:'Attach a photo or PDF (optional)', suggest_attach_hint:'Up to 5 MB.',
     suggest_send_btn:'Send', err_write_suggestion:'Write your suggestion first.', err_file_too_big:'That file is larger than 5 MB.',
-    toast_suggestion_sent:'Thanks! Your suggestion was sent.'
+    toast_suggestion_sent:'Thanks! Your suggestion was sent.',
+    acct_notify_label:'Push notifications', acct_notify_lede:'Get admin announcements as a notification on this device, even when the app is closed.',
+    acct_notify_btn:'Enable notifications',
+    notify_unsupported:'Push notifications are not supported in this browser.',
+    notify_blocked:'Notifications are blocked for this app in your browser/phone settings. Allow notifications, then reload this page.',
+    notify_on:'Notifications are ON for this device.', notify_off:'Notifications are currently OFF for this device.',
+    notify_enabling:'Enabling…', notify_permission_denied:'Notification permission was not granted.',
+    notify_not_set_up:'Push notifications are not set up on the server yet.', notify_could_not_enable:'Could not enable notifications.',
+    toast_notifications_enabled:'Notifications enabled'
   },
   bn: {
     si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
@@ -992,7 +1007,15 @@ var STR = {
     suggest_message_ph:'আপনার মতামত লিখুন, বা কী দেখতে চান তা জানান…',
     suggest_attach_label:'একটি ছবি বা PDF যুক্ত করুন (ঐচ্ছিক)', suggest_attach_hint:'সর্বোচ্চ 5 MB।',
     suggest_send_btn:'পাঠান', err_write_suggestion:'প্রথমে আপনার পরামর্শ লিখুন।', err_file_too_big:'ফাইলটি 5 MB-এর বেশি বড়।',
-    toast_suggestion_sent:'ধন্যবাদ! আপনার পরামর্শ পাঠানো হয়েছে।'
+    toast_suggestion_sent:'ধন্যবাদ! আপনার পরামর্শ পাঠানো হয়েছে।',
+    acct_notify_label:'পুশ নোটিফিকেশন', acct_notify_lede:'অ্যাডমিনের ঘোষণা এই ডিভাইসে নোটিফিকেশন হিসেবে পান, অ্যাপ বন্ধ থাকলেও।',
+    acct_notify_btn:'নোটিফিকেশন চালু করুন',
+    notify_unsupported:'এই ব্রাউজারে পুশ নোটিফিকেশন সমর্থিত নয়।',
+    notify_blocked:'আপনার ব্রাউজার/ফোনের সেটিংসে এই অ্যাপের নোটিফিকেশন ব্লক করা আছে। নোটিফিকেশন অনুমতি দিন, তারপর পেজটি রিলোড করুন।',
+    notify_on:'এই ডিভাইসে নোটিফিকেশন চালু আছে।', notify_off:'এই ডিভাইসে নোটিফিকেশন এখন বন্ধ আছে।',
+    notify_enabling:'চালু করা হচ্ছে…', notify_permission_denied:'নোটিফিকেশনের অনুমতি দেওয়া হয়নি।',
+    notify_not_set_up:'সার্ভারে পুশ নোটিফিকেশন এখনো সেট আপ করা হয়নি।', notify_could_not_enable:'নোটিফিকেশন চালু করা যায়নি।',
+    toast_notifications_enabled:'নোটিফিকেশন চালু হয়েছে'
   }
 };
 var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
@@ -1108,6 +1131,12 @@ $('#suGo').addEventListener('click',function(){
   btn.disabled=true;btn.textContent=t('creating');
   api('/api/signup',{method:'POST',body:JSON.stringify({name:name,email:email,phone:phone,password:p1})}).then(function(data){
     TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;pinUnlockedThisLoad=true;enterApp();
+    // Notifications default to "on" at signup: ask right away, right after
+    // the account-creation tap (the platform requires a user gesture — this
+    // is the closest thing to "enabled by default"). Silent: a denied
+    // permission or unsupported browser must never interrupt signup: the
+    // user can still turn it on later from Account.
+    setTimeout(function(){ enablePushNotifications('userNotifyStatus','userNotifyMsg','userNotifyBtn',true,userNotifyLabels()); },400);
   }).catch(function(e){m.textContent=e.error||t('err_could_not_create');}).then(function(){btn.disabled=false;btn.textContent=t('su_go');});
 });
 
@@ -1361,9 +1390,10 @@ function adminShowBroadcast(){
       '<label class="field" style="grid-column:1/-1"><span>Message</span><textarea id="bcBody" class="input" rows="6"></textarea></label>'+
     '</div>'+
     '<div class="g2" style="margin-top:10px">'+
-      '<label class="field"><span>Send by</span><div style="display:flex;gap:14px;align-items:center;min-height:44px">'+
+      '<label class="field"><span>Send by</span><div style="display:flex;gap:14px;align-items:center;min-height:44px;flex-wrap:wrap">'+
         '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcEmail" checked> Email</label>'+
         '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcInapp" checked> In-app</label>'+
+        '<label style="display:flex;gap:6px;align-items:center;font-weight:400"><input type="checkbox" id="bcPush"> Push (phone notification)</label>'+
       '</div></label>'+
       '<label class="field"><span>Audience</span><select id="bcAudience" class="input">'+
         '<option value="all">All users</option><option value="user">Specific user…</option>'+
@@ -1419,15 +1449,15 @@ function adminShowBroadcast(){
   $('#bcSendBtn').addEventListener('click',function(){
     var msg=$('#bcMsg'),btn=this;
     var title=$('#bcTitle').value.trim(), body=$('#bcBody').value.trim();
-    var wantEmail=$('#bcEmail').checked, wantInapp=$('#bcInapp').checked;
+    var wantEmail=$('#bcEmail').checked, wantInapp=$('#bcInapp').checked, wantPush=$('#bcPush').checked;
     var audience=$('#bcAudience').value;
     msg.textContent='';
     if(!title||!body){ msg.textContent='Write a title and a message.'; return; }
-    if(!wantEmail&&!wantInapp){ msg.textContent='Pick at least one channel (email or in-app).'; return; }
+    if(!wantEmail&&!wantInapp&&!wantPush){ msg.textContent='Pick at least one channel (email, in-app, or push).'; return; }
     if(audience==='user'&&!bcTargetUserId){ msg.textContent='Search for and select a user to target.'; return; }
-    var channel = wantEmail&&wantInapp ? 'both' : (wantEmail ? 'email' : 'inapp');
+    var channel = wantEmail&&wantInapp ? 'both' : (wantEmail ? 'email' : (wantInapp ? 'inapp' : 'none'));
     btn.disabled=true;btn.textContent='Sending…';
-    api('/api/admin/broadcasts',{method:'POST',body:JSON.stringify({title:title,body:body,channel:channel,audience:audience,targetUserId:audience==='user'?bcTargetUserId:null})}).then(function(){
+    api('/api/admin/broadcasts',{method:'POST',body:JSON.stringify({title:title,body:body,channel:channel,sendPush:wantPush,audience:audience,targetUserId:audience==='user'?bcTargetUserId:null})}).then(function(){
       toast('Announcement sent');
       $('#bcTitle').value='';$('#bcBody').value='';$('#bcPreset').value='';
       adminLoadBroadcastHistory();
@@ -1444,7 +1474,12 @@ function adminLoadBroadcastHistory(){
     if(!list.length){ $('#bcHistory').innerHTML='<p class="msg info">No announcements sent yet.</p>'; return; }
     $('#bcHistory').innerHTML='<ul class="admin-list">'+list.map(function(b){
       var who = b.audience==='user' ? ('to '+(b.target_name||b.target_email||'one user')) : 'to all users';
-      var chan = b.channel==='both' ? 'Email + In-app' : (b.channel==='email' ? 'Email only' : 'In-app only');
+      var chanParts = [];
+      if(b.channel==='both'){ chanParts.push('Email'); chanParts.push('In-app'); }
+      else if(b.channel==='email'){ chanParts.push('Email'); }
+      else if(b.channel==='inapp'){ chanParts.push('In-app'); }
+      if(b.send_push){ chanParts.push('Push'); }
+      var chan = chanParts.length ? chanParts.join(' + ') : 'None';
       return '<li style="padding:10px 12px;border:1px solid var(--line);border-radius:10px">'+
         '<b>'+esc(b.title)+'</b><br><span class="sub">'+esc(chan)+' · '+esc(who)+' · '+esc(adminDateTime(b.created_at))+'</span>'+
         '<p style="margin:6px 0 0;white-space:pre-wrap">'+esc(b.body)+'</p></li>';
@@ -1486,7 +1521,33 @@ function adminLoadSuggestions(){
   }).catch(function(){ if($('#sgList'))$('#sgList').innerHTML='<p class="msg">Could not load suggestions.</p>'; });
 }
 
-/* ---------------- Admin: phone notifications (new signups) ---------------- */
+/* ---------------- Push notifications (shared: admin panel + Account) ---------------- */
+// Used both by the admin's "new signup" alert panel and by every regular
+// user's "get admin announcements" toggle in Account — same subscription,
+// same endpoint; what a device receives just depends on what gets sent to it.
+function urlBase64ToUint8Array(base64String){
+  var padding='='.repeat((4-base64String.length%4)%4);
+  var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  var raw=atob(base64), out=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+// The admin panel is intentionally English-only (existing convention), while
+// Account (below) is a recipient-facing surface and must be bilingual — so
+// the shared functions take a `labels` object instead of hardcoding text;
+// admin call sites omit it and get these English defaults.
+var NOTIFY_LABELS_EN = {
+  unsupported:'Push notifications are not supported in this browser.',
+  blocked:'Notifications are blocked for this app in your browser/phone settings. Allow notifications, then reload this page.',
+  on:'Notifications are ON for this device.',
+  off:'Notifications are currently OFF for this device.',
+  enabling:'Enabling…',
+  enableDefault:'Enable notifications on this device',
+  permissionDenied:'Notification permission was not granted.',
+  notSetUp:'Push notifications are not set up on the server yet.',
+  couldNotEnable:'Could not enable notifications.',
+  toastEnabled:'Notifications enabled'
+};
 function urlBase64ToUint8Array(base64String){
   var padding='='.repeat((4-base64String.length%4)%4);
   var base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
@@ -1504,47 +1565,57 @@ function adminShowNotifications(){
     '<div class="df" style="justify-content:flex-start"><button type="button" class="btn primary" id="notifyEnableBtn">Enable notifications on this device</button></div>'+
     '<p id="notifyMsg" class="msg" role="alert"></p>';
   $('#adminBackFromNotify').addEventListener('click',adminShowUsers);
-  $('#notifyEnableBtn').addEventListener('click',enablePushNotifications);
-  refreshNotifyStatus();
+  $('#notifyEnableBtn').addEventListener('click',function(){ enablePushNotifications('notifyStatus','notifyMsg','notifyEnableBtn',false,NOTIFY_LABELS_EN); });
+  refreshNotifyStatus('notifyStatus',NOTIFY_LABELS_EN);
 }
-function refreshNotifyStatus(){
-  var el=$('#notifyStatus'); if(!el)return;
+// statusElId points at a <p> that shows on/off/unsupported/blocked text.
+function refreshNotifyStatus(statusElId,labels){
+  labels=labels||NOTIFY_LABELS_EN;
+  var el=$('#'+statusElId); if(!el)return;
   if(!('serviceWorker' in navigator)||!('PushManager' in window)){
-    el.textContent='Push notifications are not supported in this browser.';
+    el.textContent=labels.unsupported;
     return;
   }
   if(typeof Notification!=='undefined' && Notification.permission==='denied'){
-    el.textContent='Notifications are blocked for this app in your browser/phone settings. Allow notifications, then reload this page.';
+    el.textContent=labels.blocked;
     return;
   }
   navigator.serviceWorker.ready.then(function(reg){ return reg.pushManager.getSubscription(); }).then(function(sub){
-    if(!$('#notifyStatus'))return;
-    $('#notifyStatus').textContent = sub ? 'Notifications are ON for this device.' : 'Notifications are currently OFF for this device.';
-  }).catch(function(){ if($('#notifyStatus'))$('#notifyStatus').textContent=''; });
+    var e=$('#'+statusElId); if(!e)return;
+    e.textContent = sub ? labels.on : labels.off;
+  }).catch(function(){ var e=$('#'+statusElId); if(e)e.textContent=''; });
 }
-function enablePushNotifications(){
-  var btn=$('#notifyEnableBtn'),msg=$('#notifyMsg');
-  msg.textContent='';
+// statusElId/msgElId/btnElId are the ids of this instance's status line,
+// error/message line, and button. silent=true (used right after signup)
+// skips writing any error text and skips the toast — permission denied or
+// an unsupported browser should never interrupt or clutter the signup flow.
+function enablePushNotifications(statusElId,msgElId,btnElId,silent,labels){
+  labels=labels||NOTIFY_LABELS_EN;
+  var btn=$('#'+btnElId), msg=$('#'+msgElId);
+  var btnDefaultText = btn ? btn.textContent : labels.enableDefault;
+  if(msg) msg.textContent='';
   if(!('serviceWorker' in navigator)||!('PushManager' in window)){
-    msg.textContent='Push notifications are not supported in this browser.';
-    return;
+    if(msg && !silent) msg.textContent=labels.unsupported;
+    return Promise.resolve();
   }
-  btn.disabled=true;btn.textContent='Enabling…';
-  Notification.requestPermission().then(function(perm){
-    if(perm!=='granted') return Promise.reject({error:'Notification permission was not granted.'});
+  if(btn){ btn.disabled=true; btn.textContent=labels.enabling; }
+  return Notification.requestPermission().then(function(perm){
+    if(perm!=='granted') return Promise.reject({error:labels.permissionDenied});
     return api('/api/push/vapid-public-key');
   }).then(function(data){
-    if(!data.publicKey) return Promise.reject({error:'Push notifications are not set up on the server yet.'});
+    if(!data.publicKey) return Promise.reject({error:labels.notSetUp});
     return navigator.serviceWorker.ready.then(function(reg){
       return reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(data.publicKey)});
     });
   }).then(function(sub){
-    return api('/api/admin/push-subscribe',{method:'POST',body:JSON.stringify(sub.toJSON())});
+    return api('/api/push-subscribe',{method:'POST',body:JSON.stringify(sub.toJSON())});
   }).then(function(){
-    toast('Notifications enabled');
-    refreshNotifyStatus();
-  }).catch(function(e){ if($('#notifyMsg'))$('#notifyMsg').textContent=(e&&e.error)||'Could not enable notifications.'; }).then(function(){
-    if($('#notifyEnableBtn')){$('#notifyEnableBtn').disabled=false;$('#notifyEnableBtn').textContent='Enable notifications on this device';}
+    if(!silent) toast(labels.toastEnabled);
+    refreshNotifyStatus(statusElId,labels);
+  }).catch(function(e){
+    if(msg && !silent) msg.textContent=(e&&e.error)||labels.couldNotEnable;
+  }).then(function(){
+    var b=$('#'+btnElId); if(b){ b.disabled=false; b.textContent=btnDefaultText; }
   });
 }
 
@@ -1717,12 +1788,26 @@ function lastSignInText(){
   var when=new Date(Number(user.lastLoginAt)).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   return t('last_signed_in',{rest:(user.lastLoginDevice?user.lastLoginDevice+', ':'')+when});
 }
+function userNotifyLabels(){
+  return {
+    unsupported:t('notify_unsupported'), blocked:t('notify_blocked'),
+    on:t('notify_on'), off:t('notify_off'), enabling:t('notify_enabling'),
+    enableDefault:t('acct_notify_btn'), permissionDenied:t('notify_permission_denied'),
+    notSetUp:t('notify_not_set_up'), couldNotEnable:t('notify_could_not_enable'),
+    toastEnabled:t('toast_notifications_enabled')
+  };
+}
+$('#userNotifyBtn').addEventListener('click',function(){
+  enablePushNotifications('userNotifyStatus','userNotifyMsg','userNotifyBtn',false,userNotifyLabels());
+});
 $('#acctBtn').addEventListener('click',function(){
   $('#ac-name').value=user.name||'';$('#ac-email').value=user.email||'';$('#ac-phone').value=user.phone||'';
   $('#acctMsg').textContent='';
   var trust=$('#acctTrust'),txt=lastSignInText();
   trust.hidden=!txt;trust.textContent=txt||'';
   refreshPinUI();
+  $('#userNotifyMsg').textContent='';
+  refreshNotifyStatus('userNotifyStatus',userNotifyLabels());
   $('#acctDlg').showModal();
 });
 $('#acctForm').addEventListener('submit',function(e){

@@ -14,6 +14,18 @@ const app = express();
 app.use(cors());
 
 /* ---------------- mail ---------------- */
+// Render blocks outbound traffic on the SMTP ports (25/465/587) for free-tier
+// web services (since Sep 2025) — so real SMTP (nodemailer) just hangs until
+// it times out there, even with completely correct Gmail credentials. This
+// is a network-level block on Render's side, not a code bug or a bad
+// SMTP_* value. Brevo's email API goes over plain HTTPS (port 443, never
+// blocked), so it's the primary path in production. Local development/tests
+// still use plain SMTP (e.g. the local catcher on :1025), so that path is
+// kept as a fallback when BREVO_API_KEY isn't set.
+const BREVO_API_KEY = process.env.BREVO_API_KEY || '';
+const MAIL_FROM_EMAIL = process.env.SMTP_FROM || process.env.SMTP_USER || '';
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'Life Documents';
+
 const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
@@ -21,9 +33,30 @@ const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
 }) : null;
 
+async function sendMailViaBrevo(to, subject, text) {
+  const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      sender: { email: MAIL_FROM_EMAIL, name: MAIL_FROM_NAME },
+      to: [{ email: to }],
+      subject,
+      textContent: text
+    })
+  });
+  if (!r.ok) {
+    const body = await r.text().catch(() => '');
+    throw new Error('Brevo API error ' + r.status + ': ' + body.slice(0, 300));
+  }
+}
+
 function sendMail(to, subject, text) {
-  if (!transporter) return Promise.reject(new Error('SMTP not configured on the server (.env)'));
-  return transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
+  if (BREVO_API_KEY) {
+    if (!MAIL_FROM_EMAIL) return Promise.reject(new Error('Set SMTP_FROM (or MAIL_FROM_EMAIL) to the address you verified as a sender in Brevo.'));
+    return sendMailViaBrevo(to, subject, text);
+  }
+  if (!transporter) return Promise.reject(new Error('Email is not configured on the server (.env) — set BREVO_API_KEY, or SMTP_HOST for local/dev use.'));
+  return transporter.sendMail({ from: MAIL_FROM_EMAIL, to, subject, text });
 }
 
 /* ---------------- push notifications (admin phone alerts) ---------------- */

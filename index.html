@@ -273,9 +273,31 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 .tour-card p{margin:0 0 16px;color:var(--muted);font-size:15px}
 .tour-actions{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tour-actions .grow{flex:1}
+.tour-avatar{display:flex;justify-content:center;margin-bottom:10px}
+.tour-avatar svg{display:block}
 @media (prefers-reduced-motion: no-preference){
   dialog[open]{animation:pop .16s ease-out}
   @keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+}
+
+/* Testimonials carousel (lock screen) — reuses the app's own color tokens
+   so it follows light/dark theme automatically instead of carrying its own
+   fixed palette. */
+.ld-reviews{width:min(360px,100%);margin:28px auto 0;padding:0}
+.ld-reviews__title{margin:0 0 14px;font-size:1.05rem;font-weight:700;letter-spacing:-.01em;color:var(--ink);text-align:center}
+.ld-reviews__viewport{overflow:hidden;position:relative}
+.ld-reviews__track{display:flex;transition:transform .6s cubic-bezier(.4,0,.2,1);will-change:transform}
+.ld-review{flex:0 0 100%;background:var(--surface);border-radius:12px;padding:18px 20px;box-sizing:border-box;border:1.5px solid var(--line);opacity:.5;transform:scale(.96);transition:opacity .5s ease,transform .5s ease,border-color .5s ease}
+.ld-review.is-active{opacity:1;transform:scale(1);border-color:var(--brand);box-shadow:0 2px 10px rgba(15,107,79,.12)}
+.ld-review__stars{color:var(--brand);font-size:.85rem;letter-spacing:2px;margin-bottom:8px}
+.ld-review__quote{margin:0 0 10px;font-size:.92rem;line-height:1.45;color:var(--ink)}
+.ld-review__author{margin:0;font-size:.82rem;color:var(--muted)}
+.ld-reviews__dots{display:flex;justify-content:center;gap:6px;margin-top:14px}
+.ld-dot{width:6px;height:6px;border-radius:50%;background:var(--line);border:none;padding:0;cursor:pointer;transition:background .3s ease,transform .3s ease}
+.ld-dot.is-active{background:var(--brand);transform:scale(1.3)}
+.ld-reviews__cta{margin-top:18px;width:100%}
+@media (prefers-reduced-motion: reduce){
+  .ld-reviews__track,.ld-review{transition:none}
 }
 </style>
 </head>
@@ -340,6 +362,42 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <p class="swap" style="margin-top:18px"><button id="lockAboutBtn" class="linklike" type="button" data-i18n="lock_about_link">About Life Documents</button></p>
     <button id="backendLinkBtn" class="backend-link" type="button" hidden>Backend server settings</button>
   </div>
+
+  <section class="ld-reviews" aria-label="What users are saying">
+    <h2 class="ld-reviews__title" data-i18n="testimonials_title">What people are saying</h2>
+
+    <div class="ld-reviews__viewport">
+      <div class="ld-reviews__track" id="ldTrack">
+        <article class="ld-review is-active">
+          <div class="ld-review__stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <p class="ld-review__quote">I used to forget my internet bill every other month. Now it reminds me three days before, every time.</p>
+          <p class="ld-review__author">Rafiq · Dhaka</p>
+        </article>
+
+        <article class="ld-review">
+          <div class="ld-review__stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <p class="ld-review__quote">I keep my parents' documents here too. One place for the whole family instead of five different folders.</p>
+          <p class="ld-review__author">Nusrat · Chattogram</p>
+        </article>
+
+        <article class="ld-review">
+          <div class="ld-review__stars" aria-label="4 out of 5 stars">★★★★☆</div>
+          <p class="ld-review__quote">Simple to use, doesn't feel like another government form. It just works.</p>
+          <p class="ld-review__author">Tanvir · Sylhet</p>
+        </article>
+
+        <article class="ld-review">
+          <div class="ld-review__stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <p class="ld-review__quote">Added my Netflix, trade licence, and insurance in two minutes. Wish I'd had this years ago.</p>
+          <p class="ld-review__author">Shirin · Dhaka</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="ld-reviews__dots" id="ldDots"></div>
+
+    <button type="button" id="ldReviewsCta" class="btn primary ld-reviews__cta" data-i18n="testimonials_cta">Join the families who never miss a deadline</button>
+  </section>
 </section>
 
 <section id="pinLock" class="lock" hidden>
@@ -425,6 +483,17 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 
 <div id="tourHole" class="tour-hole" hidden></div>
 <div id="tourCard" class="tour-card" hidden role="dialog" aria-labelledby="tourTitle" aria-describedby="tourBody">
+  <div class="tour-avatar" id="tourAvatar" hidden aria-hidden="true">
+    <svg viewBox="0 0 64 64" width="56" height="56">
+      <circle cx="32" cy="32" r="31" fill="var(--surface)" stroke="var(--line)" stroke-width="1"></circle>
+      <path d="M10 58C10 45 19 38 32 38C45 38 54 45 54 58" fill="var(--brand)"></path>
+      <circle cx="32" cy="27" r="13" fill="#E8B888"></circle>
+      <path d="M18 25C18 13 46 13 46 25C46 21 39 17 32 17C25 17 18 21 18 25Z" fill="#241611"></path>
+      <circle cx="27" cy="28" r="1.7" fill="#241611"></circle>
+      <circle cx="37" cy="28" r="1.7" fill="#241611"></circle>
+      <path d="M27 34C29 36.5 35 36.5 37 34" stroke="#241611" stroke-width="1.6" fill="none" stroke-linecap="round"></path>
+    </svg>
+  </div>
   <p class="tour-step" id="tourStep"></p>
   <h3 id="tourTitle"></h3>
   <p id="tourBody"></p>
@@ -1105,7 +1174,8 @@ var STR = {
     sec_basics:'Type & name', sec_details:'Details', sec_dates:'Dates', sec_reminders:'Reminders', sec_notes_files:'Notes & files',
     sec_profile:'Profile', sec_security:'Security', sec_notifications:'Notifications', sec_more:'More',
     acct_tab_profile:'Profile', acct_tab_security:'Security', acct_tab_app:'App & data', acct_tab_more:'More',
-    or_divider:'or',
+    or_divider:'or', testimonials_title:'What people are saying',
+    testimonials_cta:'Join the families who never miss a deadline',
     acct_photo_label:'Profile picture', acct_avatar_change_btn:'Change photo', acct_avatar_remove_btn:'Remove photo',
     toast_avatar_updated:'Profile picture updated', toast_avatar_removed:'Profile picture removed',
     err_avatar_choose_image:'Choose an image file.',
@@ -1176,7 +1246,7 @@ var STR = {
     pin_too_short:'Enter your PIN.', pin_wrong:'Wrong PIN.', pin_too_many_tries:'Too many wrong tries. Sign in with your password.',
     toast_pin_saved:'PIN saved', toast_pin_off:'PIN lock turned off',
     tour_next:'Next', tour_back:'Back', tour_skip:'Skip', tour_done:'Got it', tour_step_of:'Step {n} of {total}',
-    tour1_title:'Welcome to Life Documents', tour1_body:"Quick tour of what's here — tap Next to look around, or Skip anytime.",
+    tour1_title:"Hi, I'm Sany!", tour1_body:"I'm part of the Life Documents team. We help families keep their passport, licences, insurance and bills in one place, with a reminder before anything expires — so you never miss a deadline. Tap Next for a quick look around, or Skip anytime.",
     tour2_title:'Your document health, at a glance', tour2_body:'See how many documents are active, expiring soon, or expired — and what’s coming up next — right here.',
     tour3_title:'Add a document', tour3_body:'Add a document and we’ll sort it into a category automatically, and remind you 180, 90, 30, 7, and 1 day before it expires — customizable per document.',
     tour4_title:'Family Vault', tour4_body:'Tag documents to yourself, your spouse, children, or parents, and filter your vault by person.',
@@ -1302,7 +1372,8 @@ var STR = {
     sec_basics:'ধরন ও নাম', sec_details:'বিস্তারিত', sec_dates:'তারিখ', sec_reminders:'রিমাইন্ডার', sec_notes_files:'নোট ও ফাইল',
     sec_profile:'প্রোফাইল', sec_security:'নিরাপত্তা', sec_notifications:'নোটিফিকেশন', sec_more:'আরও',
     acct_tab_profile:'প্রোফাইল', acct_tab_security:'নিরাপত্তা', acct_tab_app:'অ্যাপ ও ডেটা', acct_tab_more:'আরও',
-    or_divider:'অথবা',
+    or_divider:'অথবা', testimonials_title:'ব্যবহারকারীরা যা বলছেন',
+    testimonials_cta:'যেসব পরিবার কখনো মেয়াদ মিস করে না, তাদের সাথে যুক্ত হোন',
     acct_photo_label:'প্রোফাইল ছবি', acct_avatar_change_btn:'ছবি পরিবর্তন করুন', acct_avatar_remove_btn:'ছবি সরান',
     toast_avatar_updated:'প্রোফাইল ছবি আপডেট হয়েছে', toast_avatar_removed:'প্রোফাইল ছবি সরানো হয়েছে',
     err_avatar_choose_image:'একটি ছবি ফাইল বেছে নিন।',
@@ -1373,7 +1444,7 @@ var STR = {
     pin_too_short:'আপনার পিন লিখুন।', pin_wrong:'ভুল পিন।', pin_too_many_tries:'অনেকবার ভুল হয়েছে। পাসওয়ার্ড দিয়ে সাইন ইন করুন।',
     toast_pin_saved:'পিন সংরক্ষিত হয়েছে', toast_pin_off:'পিন লক বন্ধ হয়েছে',
     tour_next:'পরবর্তী', tour_back:'পেছনে', tour_skip:'বাদ দিন', tour_done:'বুঝেছি', tour_step_of:'ধাপ {n}/{total}',
-    tour1_title:'লাইফ ডকুমেন্টসে স্বাগতম', tour1_body:'কী কী আছে তা দেখতে একটা ছোট ট্যুর — এগিয়ে যেতে ‘পরবর্তী’ চাপুন, বা যেকোনো সময় ‘বাদ দিন’ চাপুন।',
+    tour1_title:'হাই, আমি সানি!', tour1_body:'আমি লাইফ ডকুমেন্টস টিমের একজন। আমরা পরিবারগুলোকে পাসপোর্ট, লাইসেন্স, বীমা আর বিল—সব একজায়গায় রাখতে সাহায্য করি, মেয়াদ শেষ হওয়ার আগেই রিমাইন্ডার দিয়ে, যাতে আপনি কখনো কোনো মেয়াদ মিস না করেন। এগিয়ে যেতে ‘পরবর্তী’ চাপুন, ছোট্ট একটা ট্যুর দেখে নিন, বা যেকোনো সময় ‘বাদ দিন’ চাপুন।',
     tour2_title:'আপনার ডকুমেন্টের অবস্থা, এক নজরে', tour2_body:'কতগুলো ডকুমেন্ট সচল, মেয়াদ শেষ হতে যাচ্ছে, বা মেয়াদ শেষ হয়ে গেছে — এবং পরবর্তীতে কী আসছে — সব এখানেই দেখুন।',
     tour3_title:'ডকুমেন্ট যোগ করুন', tour3_body:'একটা ডকুমেন্ট যোগ করলে আমরা সেটা অটোমেটিক ক্যাটাগরিতে সাজিয়ে দেব, আর মেয়াদ শেষ হওয়ার 180, 90, 30, 7, ও 1 দিন আগে মনে করিয়ে দেব — প্রতিটা ডকুমেন্টের জন্য আলাদাভাবে কাস্টমাইজ করা যায়।',
     tour4_title:'ফ্যামিলি ভল্ট', tour4_body:'নিজের, স্ত্রী/স্বামীর, সন্তানের, বা বাবা-মায়ের নামে ডকুমেন্ট ট্যাগ করুন, এবং ব্যক্তি অনুযায়ী ভল্ট ফিল্টার করুন।',
@@ -1552,6 +1623,39 @@ $('#toSignUp').addEventListener('click',function(){showPanel('panelSignUp');});
 $('#toSignIn').addEventListener('click',function(){showPanel('panelSignIn');});
 $('#forgotBtn').addEventListener('click',function(){showPanel('panelForgot');});
 $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
+
+/* ---------------- lock-screen testimonials carousel ---------------- */
+// Auto-advancing "what people are saying" strip shown under the sign-in/
+// sign-up card. Its CTA takes a not-yet-signed-in visitor straight to the
+// sign-up panel (there's no document to add until they have an account).
+(function(){
+  var track=$('#ldTrack'), dotsWrap=$('#ldDots');
+  if(!track||!dotsWrap) return;
+  var cards=track.querySelectorAll('.ld-review');
+  var count=cards.length, index=0, timer;
+  for(var i=0;i<count;i++){
+    var dot=document.createElement('button');
+    dot.type='button';
+    dot.className='ld-dot'+(i===0?' is-active':'');
+    dot.setAttribute('aria-label','Show review '+(i+1));
+    dot.addEventListener('click',(function(idx){return function(){goTo(idx);restart();};})(i));
+    dotsWrap.appendChild(dot);
+  }
+  var dots=dotsWrap.querySelectorAll('.ld-dot');
+  function goTo(i){
+    index=(i+count)%count;
+    track.style.transform='translateX(-'+(index*100)+'%)';
+    cards.forEach(function(c,ci){c.classList.toggle('is-active',ci===index);});
+    dots.forEach(function(d,di){d.classList.toggle('is-active',di===index);});
+  }
+  function restart(){
+    clearInterval(timer);
+    timer=setInterval(function(){goTo(index+1);},4000);
+  }
+  goTo(0);
+  restart();
+})();
+$('#ldReviewsCta').addEventListener('click',function(){ showPanel('panelSignUp'); });
 
 function showLock(msg){
   user=null;docs=[];subs=[];subsLoadedOnce=false;isAdmin=false;pinUnlockedThisLoad=false;
@@ -4178,6 +4282,7 @@ function startTour(){
 }
 function tourRender(){
   var step=TOUR_STEPS[tourIndex];
+  $('#tourAvatar').hidden=(tourIndex!==0);
   $('#tourStep').textContent=t('tour_step_of',{n:tourIndex+1,total:TOUR_STEPS.length});
   $('#tourTitle').textContent=t(step.titleKey);
   $('#tourBody').textContent=t(step.bodyKey);

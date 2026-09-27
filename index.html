@@ -280,6 +280,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <div class="lock-card">
     <h1 class="wordmark">Life<br>Documents</h1>
     <p class="lock-tagline" data-i18n="lock_tagline">Store it. Track it. Never miss it.</p>
+    <button type="button" id="lockInstallBtn" class="linklike" hidden style="margin:0 0 12px">📲 Install app</button>
 
     <div id="panelSignIn">
       <p class="lede" data-i18n="si_lede">Sign in to your vault.</p>
@@ -352,6 +353,14 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     </div>
   </header>
   <button type="button" id="sanyBtn" aria-label="Sany" style="position:fixed;right:18px;bottom:18px;z-index:40;border-radius:999px;padding:12px 20px;border-color:var(--brand);background:var(--brand);color:var(--brand-fg);font-weight:700;box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer">💬 Sany</button>
+  <!-- No `display` here on purpose: an inline style always beats the UA
+       [hidden] rule, so baking display:flex into this attribute would make
+       the banner visible even while `hidden` is set. showUpdateBanner() sets
+       style.display='flex' itself at the same moment it clears `hidden`. -->
+  <div id="updateBanner" hidden role="status" style="position:fixed;left:12px;right:12px;bottom:18px;z-index:50;max-width:420px;margin:0 auto;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 6px 16px rgba(0,0,0,.25)">
+    <span id="updateBannerText" style="flex:1;font-size:14px"></span>
+    <button type="button" id="updateBannerBtn" class="btn primary small"></button>
+  </div>
   <main>
     <div class="viewswitch" id="viewSwitch" role="group" aria-label="Switch view">
       <button type="button" data-view="docs" aria-pressed="true" data-i18n="view_documents">Documents</button>
@@ -572,6 +581,11 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
         <button type="button" class="btn small" id="introReplayBtn" data-i18n="intro_replay_btn">Show intro again</button>
       </div>
+      <div class="field" id="acctInstallField" hidden>
+        <span data-i18n="acct_install_label">Install the app</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="acct_install_lede">Add Life Documents to your home screen for quicker, full-screen access — no browser address bar.</p>
+        <button type="button" class="btn small" id="acctInstallBtn" data-i18n="acct_install_btn">Install app</button>
+      </div>
       <div class="field">
         <span data-i18n="acct_about_label">About</span>
         <p class="msg info" style="margin:6px 0" data-i18n="acct_about_lede">Learn what Life Documents is and how it helps.</p>
@@ -645,6 +659,14 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     </ul>
     <p data-i18n="about_goal">Our goal is simple: help you stay organized and never miss an important deadline.</p>
     <p class="about-tagline" data-i18n="about_tagline">Life Documents — Store it. Track it. Never miss it.</p>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
+</dialog>
+
+<dialog id="iosInstallDlg" aria-labelledby="iosInstallTitle">
+  <div class="dh"><h2 id="iosInstallTitle" data-i18n="install_ios_title">Install on iPhone/iPad</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p data-i18n="install_ios_body">In Safari, tap the Share icon (the square with an arrow pointing up), then choose "Add to Home Screen".</p>
   </div>
   <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
@@ -1111,6 +1133,12 @@ var STR = {
     acct_share_btn:'Share with Friends & Family',
     share_app_text:'I’m using Life Documents to keep track of my important documents and never miss a renewal. Try it:',
     toast_link_copied:'Link copied',
+    acct_install_label:'Install the app', acct_install_lede:'Add Life Documents to your home screen for quicker, full-screen access — no browser address bar.',
+    acct_install_btn:'Install app', install_installed_lede:'Life Documents is already installed on this device.',
+    toast_app_installed:'Installed! You can now open Life Documents from your home screen.',
+    toast_install_unavailable:'Your browser doesn’t support installing this app directly — try Chrome or Edge, or Safari on iPhone/iPad.',
+    install_ios_title:'Install on iPhone/iPad', install_ios_body:'In Safari, tap the Share icon (the square with an arrow pointing up), then choose "Add to Home Screen".',
+    update_available_text:'A new version of Life Documents is ready.', update_refresh_btn:'Refresh',
     acct_suggest_label:'Suggestions', acct_suggest_lede:'Have an idea or found a problem? Let us know — you can attach a photo or PDF.',
     acct_suggest_btn:'Send a suggestion', suggest_title:'Send a suggestion', suggest_message_label:'Your suggestion',
     suggest_message_ph:'Tell us what you think, or what you’d like to see…',
@@ -1287,6 +1315,12 @@ var STR = {
     acct_share_btn:'বন্ধু ও পরিবারের সাথে শেয়ার করুন',
     share_app_text:'আমি Life Documents ব্যবহার করি আমার গুরুত্বপূর্ণ ডকুমেন্ট গুছিয়ে রাখতে এবং কোনো নবায়ন যেন মিস না হয় তার জন্য। আপনিও দেখুন:',
     toast_link_copied:'লিংক কপি করা হয়েছে',
+    acct_install_label:'অ্যাপ ইনস্টল করুন', acct_install_lede:'দ্রুত, ফুল-স্ক্রিন অ্যাক্সেসের জন্য Life Documents আপনার হোম স্ক্রিনে যুক্ত করুন — ব্রাউজারের অ্যাড্রেস বার ছাড়াই।',
+    acct_install_btn:'অ্যাপ ইনস্টল করুন', install_installed_lede:'Life Documents ইতিমধ্যে এই ডিভাইসে ইনস্টল করা আছে।',
+    toast_app_installed:'ইনস্টল হয়ে গেছে! এখন হোম স্ক্রিন থেকে Life Documents খুলতে পারবেন।',
+    toast_install_unavailable:'আপনার ব্রাউজার সরাসরি এই অ্যাপ ইনস্টল সাপোর্ট করে না — Chrome বা Edge, অথবা iPhone/iPad-এ Safari ব্যবহার করে দেখুন।',
+    install_ios_title:'iPhone/iPad-এ ইনস্টল করুন', install_ios_body:'Safari-তে Share আইকনে (ওপরের দিকে তীরচিহ্ন সহ চতুর্ভুজ) চাপুন, তারপর "Add to Home Screen" বেছে নিন।',
+    update_available_text:'Life Documents-এর নতুন ভার্সন প্রস্তুত।', update_refresh_btn:'রিফ্রেশ করুন',
     acct_suggest_label:'পরামর্শ', acct_suggest_lede:'কোনো আইডিয়া আছে বা কোনো সমস্যা পেয়েছেন? আমাদের জানান — চাইলে একটি ছবি বা PDF যুক্ত করতে পারেন।',
     acct_suggest_btn:'পরামর্শ পাঠান', suggest_title:'পরামর্শ পাঠান', suggest_message_label:'আপনার পরামর্শ',
     suggest_message_ph:'আপনার মতামত লিখুন, বা কী দেখতে চান তা জানান…',
@@ -1361,6 +1395,7 @@ function setLang(l){
   if($('#acctDlg').open){
     if(typeof refreshSessionsUI==='function')refreshSessionsUI();
   }
+  if(typeof refreshInstallUi==='function')refreshInstallUi();
 }
 $('#acctLangBtn').addEventListener('click', function(){ setLang(LANG==='bn' ? 'en' : 'bn'); });
 applyStaticI18n();
@@ -1425,7 +1460,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];subs=[];subsLoadedOnce=false;isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg','iosInstallDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -3808,14 +3843,86 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg','iosInstallDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 
-/* ---------------- installable app shell ---------------- */
+/* ---------------- installable app shell (install prompt + update banner) ---------------- */
+// Two separate concerns live here:
+//  1) "Install app" — surfaces the browser's native install prompt (Android/
+//     desktop Chrome & Edge) via the beforeinstallprompt event, or, on iOS
+//     Safari (which has no such event at all), shows manual "Add to Home
+//     Screen" instructions instead. Hidden entirely once already installed.
+//  2) Update banner — the service worker's fetch handler always refetches
+//     the HTML shell from the network, so a plain refresh already gets the
+//     latest deployed version; this banner is for people who leave the
+//     installed app open/backgrounded for days and would otherwise never
+//     know a refresh is worth doing.
+function isStandaloneApp(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone===true;
+}
+function isIOSDevice(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+var deferredInstallPrompt=null;
+function refreshInstallUi(){
+  var installed=isStandaloneApp();
+  var canOffer = !installed && (!!deferredInstallPrompt || isIOSDevice());
+  var lockBtn=$('#lockInstallBtn'), acctField=$('#acctInstallField');
+  if(lockBtn){ lockBtn.hidden=!canOffer; lockBtn.textContent='📲 '+t('acct_install_btn'); }
+  if(acctField) acctField.hidden=!canOffer;
+}
+function triggerInstall(){
+  if(deferredInstallPrompt){
+    var evt=deferredInstallPrompt; deferredInstallPrompt=null;
+    evt.prompt();
+    evt.userChoice.then(function(){ refreshInstallUi(); }).catch(function(){});
+  } else if(isIOSDevice()){
+    $('#iosInstallDlg').showModal();
+  } else {
+    toast(t('toast_install_unavailable'));
+  }
+}
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  refreshInstallUi();
+});
+window.addEventListener('appinstalled',function(){
+  deferredInstallPrompt=null;
+  refreshInstallUi();
+  toast(t('toast_app_installed'));
+});
+refreshInstallUi();
+var lib=$('#lockInstallBtn'); if(lib) lib.addEventListener('click',triggerInstall);
+var aib=$('#acctInstallBtn'); if(aib) aib.addEventListener('click',triggerInstall);
+
+function showUpdateBanner(){
+  var el=$('#updateBanner'); if(!el || !el.hidden) return; // don't stack multiple prompts
+  $('#updateBannerText').textContent=t('update_available_text');
+  var btn=$('#updateBannerBtn'); btn.textContent=t('update_refresh_btn');
+  btn.onclick=function(){ location.reload(); };
+  el.hidden=false;
+  el.style.display='flex'; // the [hidden] attribute alone won't do — see markup comment
+}
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('sw.js').catch(function(){});
+    var hadControllerAtLoad=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      // A tab left open for a long time may not notice a new deployment on
+      // its own — nudge the browser to check whenever the tab regains focus.
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible') reg.update().catch(function(){});
+      });
+    }).catch(function(){});
+    // Fires once the new service worker actually takes over the page. Only
+    // treat it as an "update" (and prompt) if a service worker was already
+    // controlling this page before — otherwise it's just the very first
+    // install, which needs no banner.
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(hadControllerAtLoad) showUpdateBanner();
+      hadControllerAtLoad=true;
+    });
   });
 }
 

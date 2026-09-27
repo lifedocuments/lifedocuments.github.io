@@ -1,7 +1,7 @@
 // Minimal service worker: caches the app shell so it installs as a proper
 // app on Android and still opens (to a sign-in screen) with no signal.
 // It never caches API calls — those always go straight to your backend.
-const CACHE = 'life-documents-shell-v1';
+const CACHE = 'life-documents-shell-v2';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -48,6 +48,26 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin app-shell files. Everything else (your Render
   // backend, fonts, etc.) goes straight to the network, untouched.
   if (url.origin !== self.location.origin) return;
+
+  // The app's own HTML is developed and redeployed constantly, so a plain
+  // refresh should reliably fetch whatever is actually live right now
+  // rather than a cached copy from whenever this device last visited —
+  // only fall back to the cache if there's no network at all (offline).
+  // Everything else in the shell (icons, manifest) changes rarely, so
+  // those stay cache-first-with-background-refresh for speed.
+  const isHtmlNav = event.request.mode === 'navigate' || url.pathname.endsWith('/') || url.pathname.endsWith('index.html');
+  if (isHtmlNav) {
+    event.respondWith(
+      fetch(event.request).then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(event.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

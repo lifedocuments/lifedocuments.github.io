@@ -82,6 +82,11 @@ async function init() {
     -- list (default 180/90/30/7/1 days before) — "lead" is kept as-is for
     -- the countdown color, this is only for which emails go out and when.
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS reminder_days INTEGER[] NOT NULL DEFAULT '{180,90,30,7,1}';
+    -- Recently Deleted: a document is soft-deleted (hidden everywhere, kept
+    -- fully intact including its files) for 30 days before a nightly sweep
+    -- purges it for good. NULL means "not deleted".
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS deleted_at BIGINT;
+    CREATE INDEX IF NOT EXISTS idx_documents_deleted ON documents(deleted_at);
     -- Document Bundles: named groups (e.g. "Travel Documents", "Car
     -- Documents") a document can belong to, purely for viewing/filtering
     -- together in-app. A document can be in more than one bundle.
@@ -141,6 +146,11 @@ async function init() {
       created_at BIGINT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
+    -- Utility Bill Reminders: same table and reminder machinery as ordinary
+    -- subscriptions, distinguished only by kind='utility' so electricity/
+    -- gas/water/internet bills get their own tab and category set instead
+    -- of being mixed in with Netflix/insurance/loans.
+    ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'subscription';
     CREATE TABLE IF NOT EXISTS sub_notified(
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -371,7 +381,7 @@ module.exports = {
         COUNT(d.id)::int AS doc_count,
         COUNT(*) FILTER (WHERE d.id IS NOT NULL AND (d.expiry IS NULL OR d.expiry = ''))::int AS missing_expiry_count
       FROM users u
-      LEFT JOIN documents d ON d.user_id = u.id
+      LEFT JOIN documents d ON d.user_id = u.id AND d.deleted_at IS NULL
       GROUP BY u.id
     `);
     return r.rows;
@@ -380,7 +390,7 @@ module.exports = {
     await pool.query('UPDATE users SET last_weekly_email_at=$2 WHERE id=$1', [id, ts]);
   },
   async docCountsByUser() {
-    const r = await pool.query('SELECT user_id, COUNT(*)::int c FROM documents GROUP BY user_id');
+    const r = await pool.query('SELECT user_id, COUNT(*)::int c FROM documents WHERE deleted_at IS NULL GROUP BY user_id');
     const m = {};
     r.rows.forEach(row => { m[row.user_id] = row.c; });
     return m;
@@ -389,13 +399,13 @@ module.exports = {
   // "overdue" only look at documents with a well-formed YYYY-MM-DD expiry.
   async adminStats() {
     const users = await pool.query('SELECT COUNT(*)::int c FROM users');
-    const docs = await pool.query('SELECT COUNT(*)::int c FROM documents');
+    const docs = await pool.query('SELECT COUNT(*)::int c FROM documents WHERE deleted_at IS NULL');
     const expiry = await pool.query(`
       SELECT
         COUNT(*) FILTER (WHERE expiry::date < CURRENT_DATE)::int AS overdue,
         COUNT(*) FILTER (WHERE expiry::date >= CURRENT_DATE AND expiry::date < CURRENT_DATE + INTERVAL '7 days')::int AS expiring_this_week
       FROM documents
-      WHERE expiry ~ '^\\d{4}-\\d{2}-\\d{2}$'
+      WHERE expiry ~ '^\\d{4}-\\d{2}-\\d{2}$' AND deleted_at IS NULL
     `);
     return {
       totalUsers: users.rows[0].c,
@@ -413,7 +423,7 @@ module.exports = {
     if (key === 'no_documents') {
       const r = await pool.query(`
         SELECT u.id FROM users u
-        LEFT JOIN documents d ON d.user_id = u.id
+        LEFT JOIN documents d ON d.user_id = u.id AND d.deleted_at IS NULL
         WHERE u.created_at < $1 AND u.suspended = false
         GROUP BY u.id
         HAVING COUNT(d.id) = 0
@@ -424,7 +434,7 @@ module.exports = {
       const r = await pool.query(`
         SELECT DISTINCT u.id FROM users u
         JOIN documents d ON d.user_id = u.id
-        WHERE (d.expiry IS NULL OR d.expiry = '') AND u.suspended = false
+        WHERE (d.expiry IS NULL OR d.expiry = '') AND u.suspended = false AND d.deleted_at IS NULL
       `);
       return r.rows.map(x => x.id);
     }
@@ -440,7 +450,7 @@ module.exports = {
       const r = await pool.query(`
         SELECT DISTINCT u.id FROM users u
         JOIN documents d ON d.user_id = u.id
-        WHERE u.suspended = false AND d.expiry ~ '^\\d{4}-\\d{2}-\\d{2}$'
+        WHERE u.suspended = false AND d.expiry ~ '^\\d{4}-\\d{2}-\\d{2}$' AND d.deleted_at IS NULL
           AND d.expiry::date >= CURRENT_DATE AND d.expiry::date <= CURRENT_DATE + INTERVAL '7 days'
       `);
       return r.rows.map(x => x.id);
@@ -458,11 +468,11 @@ module.exports = {
     );
   },
   async findDocument(id, userId) {
-    const r = await pool.query('SELECT * FROM documents WHERE id=$1 AND user_id=$2', [id, userId]);
+    const r = await pool.query('SELECT * FROM documents WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL', [id, userId]);
     return r.rows[0] || null;
   },
   async listDocumentsByUser(userId) {
-    const r = await pool.query('SELECT * FROM documents WHERE user_id=$1 ORDER BY created_at', [userId]);
+    const r = await pool.query('SELECT * FROM documents WHERE user_id=$1 AND deleted_at IS NULL ORDER BY created_at', [userId]);
     return r.rows;
   },
   async updateDocument(id, patch) {
@@ -474,11 +484,43 @@ module.exports = {
   async deleteDocument(id) {
     await pool.query('DELETE FROM documents WHERE id=$1', [id]);
   },
+  // ---- Recently Deleted (soft-delete) ----
+  async softDeleteDocument(id, userId, ts) {
+    const r = await pool.query(
+      'UPDATE documents SET deleted_at=$3 WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL',
+      [id, userId, ts]
+    );
+    return r.rowCount > 0;
+  },
+  async findDeletedDocument(id, userId) {
+    const r = await pool.query('SELECT * FROM documents WHERE id=$1 AND user_id=$2 AND deleted_at IS NOT NULL', [id, userId]);
+    return r.rows[0] || null;
+  },
+  async listDeletedDocumentsByUser(userId) {
+    const r = await pool.query(
+      'SELECT * FROM documents WHERE user_id=$1 AND deleted_at IS NOT NULL ORDER BY deleted_at DESC',
+      [userId]
+    );
+    return r.rows;
+  },
+  async restoreDocument(id, userId) {
+    const r = await pool.query(
+      'UPDATE documents SET deleted_at=NULL WHERE id=$1 AND user_id=$2 AND deleted_at IS NOT NULL',
+      [id, userId]
+    );
+    return r.rowCount > 0;
+  },
+  // Documents whose 30-day grace period is over — the nightly purge sweep
+  // hard-deletes each of these (and their files/bundle-items/notified rows).
+  async listDocumentsPastPurgeDate(cutoff) {
+    const r = await pool.query('SELECT * FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < $1', [cutoff]);
+    return r.rows;
+  },
   async allDocumentsWithExpiry() {
     const r = await pool.query(`
       SELECT documents.*, users.email AS user_email
       FROM documents JOIN users ON users.id = documents.user_id
-      WHERE documents.expiry IS NOT NULL AND documents.expiry <> ''
+      WHERE documents.expiry IS NOT NULL AND documents.expiry <> '' AND documents.deleted_at IS NULL
     `);
     return r.rows;
   },
@@ -575,10 +617,11 @@ module.exports = {
   // ---- subscriptions (Subscription & Payment Reminder) ----
   async insertSubscription(s) {
     await pool.query(
-      `INSERT INTO subscriptions(id,user_id,profile_id,category,name,amount,recurrence,next_due,reminder_days,notes,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      `INSERT INTO subscriptions(id,user_id,profile_id,category,name,amount,recurrence,next_due,reminder_days,notes,created_at,kind)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [s.id, s.user_id, s.profile_id || null, s.category || 'other', s.name, s.amount || '',
-        s.recurrence || 'monthly', s.next_due || '', s.reminder_days || [7, 3, 1, 0], s.notes || '', s.created_at]
+        s.recurrence || 'monthly', s.next_due || '', s.reminder_days || [7, 3, 1, 0], s.notes || '', s.created_at,
+        s.kind === 'utility' ? 'utility' : 'subscription']
     );
   },
   async findSubscription(id, userId) {

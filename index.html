@@ -356,6 +356,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <div class="viewswitch" id="viewSwitch" role="group" aria-label="Switch view">
       <button type="button" data-view="docs" aria-pressed="true" data-i18n="view_documents">Documents</button>
       <button type="button" data-view="subs" aria-pressed="false" data-i18n="view_subscriptions">Subscriptions</button>
+      <button type="button" data-view="utils" aria-pressed="false" data-i18n="view_utilities">Utilities</button>
     </div>
 
     <div id="docsView">
@@ -386,6 +387,16 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       </div>
       <ul id="subList" class="list"></ul>
       <div id="subEmpty" class="empty" hidden></div>
+    </div>
+
+    <div id="utilsView" hidden>
+      <section class="health" id="utilHealthDash" aria-live="polite"></section>
+      <div class="bar" id="utilToolbar">
+        <span></span>
+        <button id="addUtilBtn" class="btn primary" type="button" data-i18n="add_util_btn">Add utility bill</button>
+      </div>
+      <ul id="utilList" class="list"></ul>
+      <div id="utilEmpty" class="empty" hidden></div>
     </div>
   </main>
 </div>
@@ -426,6 +437,19 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <label class="field"><span data-i18n="field_issue">Issue date</span><input id="f-issue" class="input" type="date"></label>
         <label class="field"><span data-i18n="field_expiry">Expiry date</span><input id="f-expiry" class="input" type="date"><small data-i18n="field_expiry_hint">Leave empty if it never expires.</small></label>
       </div>
+      <label class="field" id="warrantyLenWrap" hidden><span data-i18n="field_warranty_len">Warranty length</span>
+        <select id="f-warranty-len" class="input">
+          <option value="" data-i18n="warranty_len_custom">Custom (set expiry manually)</option>
+          <option value="3" data-i18n="warranty_len_3m">3 months</option>
+          <option value="6" data-i18n="warranty_len_6m">6 months</option>
+          <option value="12" data-i18n="warranty_len_1y">1 year</option>
+          <option value="24" data-i18n="warranty_len_2y">2 years</option>
+          <option value="36" data-i18n="warranty_len_3y">3 years</option>
+          <option value="60" data-i18n="warranty_len_5y">5 years</option>
+          <option value="120" data-i18n="warranty_len_10y">10 years</option>
+        </select>
+        <small data-i18n="field_warranty_len_hint">Uses the purchase date above to fill in the expiry date automatically.</small>
+      </label>
       <label class="field" id="leadWrap"><span data-i18n="field_alarm">Alarm me</span>
         <select id="f-lead" class="input">
           <option value="7" data-i18n="lead_7">7 days before</option>
@@ -485,6 +509,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       </div>
       <label class="field"><span data-i18n="field_name">Name</span><input id="ac-name" class="input" maxlength="60"></label>
       <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
+      <label class="field" id="acCurrentPassRow" hidden><span data-i18n="field_current_password_ph">Your account password</span><input id="ac-current-password" class="input" type="password" autocomplete="current-password"></label>
       <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
       <p id="acctTrust" class="msg info" hidden></p>
       <div class="field-section-label" data-i18n="sec_security">Security</div>
@@ -530,6 +555,11 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <p class="msg info" style="margin:6px 0" data-i18n="backup_lede">Download everything you've stored — documents, subscriptions, and files — as a ZIP file.</p>
         <button type="button" class="btn small" id="backupBtn" data-i18n="backup_btn">Download all my data</button>
         <p id="backupMsg" class="msg" role="alert"></p>
+      </div>
+      <div class="field">
+        <span data-i18n="trash_label">Recently deleted</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="trash_lede">A deleted document stays recoverable here for 30 days before it's gone for good.</p>
+        <button type="button" class="btn small" id="trashManageBtn" data-i18n="trash_manage_btn">View recently deleted</button>
       </div>
       <div class="field">
         <span data-i18n="emerg_label">Emergency access</span>
@@ -588,6 +618,15 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     </div>
     <div class="field-section-label" data-i18n="emerg_requests_section">Access requests</div>
     <ul class="files" id="emergRequestsList"></ul>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
+</dialog>
+
+<dialog id="trashDlg" aria-labelledby="trashTitle">
+  <div class="dh"><h2 id="trashTitle" data-i18n="trash_title">Recently deleted</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="trash_dlg_lede">Deleted documents stay here for 30 days — with their files and history fully intact — before they're purged for good.</p>
+    <ul class="files" id="trashList"></ul>
   </div>
   <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
@@ -734,6 +773,39 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <div class="df" id="subViewActions"></div>
 </dialog>
 
+<dialog id="utilFormDlg" aria-labelledby="utilFormTitle">
+  <div class="dh"><h2 id="utilFormTitle">Add utility bill</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <form id="utilForm">
+    <div class="db">
+      <div class="g2">
+        <label class="field"><span data-i18n="field_category">Category</span><select id="u-category" class="input"></select></label>
+        <label class="field"><span data-i18n="field_name">Name</span><input id="u-name" class="input" maxlength="80" data-i18n-ph="field_util_name_ph"></label>
+      </div>
+      <div class="g2">
+        <label class="field"><span data-i18n="field_family">Family member</span><select id="u-profile" class="input"></select></label>
+        <label class="field"><span data-i18n="field_amount">Amount</span><input id="u-amount" class="input" maxlength="30" data-i18n-ph="field_amount_ph"></label>
+      </div>
+      <label class="field"><span data-i18n="field_util_due">Monthly due date</span><input id="u-nextdue" class="input" type="date"></label>
+      <div class="field">
+        <span data-i18n="field_reminders">Remind me by email</span>
+        <div class="chips" id="utilMilestoneChips"></div>
+      </div>
+      <label class="field"><span data-i18n="field_notes">Notes</span><textarea id="u-notes" class="input" maxlength="600"></textarea></label>
+      <p id="utilFormMsg" class="msg" role="alert"></p>
+    </div>
+    <div class="df">
+      <button class="btn primary" type="submit" id="utilSaveBtn" data-i18n="save">Save</button>
+      <button class="btn" type="button" data-close data-i18n="cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="utilViewDlg" aria-labelledby="utilViewTitle">
+  <div class="dh"><h2 id="utilViewTitle"></h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db" id="utilViewBody"></div>
+  <div class="df" id="utilViewActions"></div>
+</dialog>
+
 <dialog id="adminDlg" aria-labelledby="adminTitle">
   <div class="dh"><h2 id="adminTitle">Admin</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
   <div class="db" id="adminBody"></div>
@@ -764,7 +836,8 @@ var TYPES = {
   tin:{label:'TIN certificate',labelBn:'টিআইএন সনদ',icon:'🧮',lead:30,name:'TIN certificate',cat:'business',hint:'Keep the TIN number handy every tax season; note where the certificate is filed.',hintBn:'প্রতি কর মৌসুমে টিআইএন নম্বরটি হাতের কাছে রাখুন; সনদটি কোথায় রাখা আছে তা নোট করুন।'},
   udc:{label:'Union Digital Centre document',labelBn:'ইউনিয়ন ডিজিটাল সেন্টারের কাগজ',icon:'🏛️',lead:30,name:'UDC document',cat:'identity',hint:'e.g. birth/death registration, land records, or another UDC-issued paper — note which service issued it.',hintBn:'যেমন: জন্ম/মৃত্যু নিবন্ধন, জমির রেকর্ড, বা অন্য কোনো UDC-ইস্যুকৃত কাগজ — কোন সেবা থেকে ইস্যু হয়েছে তা নোট করুন।'},
   insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️',lead:30,name:'Insurance policy',cat:'insurance'},
-  warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty',cat:'other'},
+  warranty:{label:'Warranty',labelBn:'ওয়ারেন্টি',icon:'🧾',lead:30,name:'Warranty',cat:'other',warranty:true,hint:'Add a photo of the receipt, set the purchase date below, then pick a warranty length to fill in the expiry date automatically.',hintBn:'রসিদের ছবি যুক্ত করুন, নিচে কেনার তারিখ দিন, তারপর ওয়ারেন্টির মেয়াদ বেছে নিলে মেয়াদ শেষের তারিখ নিজে থেকেই বসে যাবে।'},
+  tax_return:{label:'Tax return',labelBn:'আয়কর রিটার্ন',icon:'📋',lead:45,name:'Tax return',cat:'tax',hint:'Attach this year\'s acknowledgement/receipt and set the expiry to your next filing deadline (e.g. 30 Nov). When you file next year, tap "Renewed" to log it — this year\'s copy stays in the document\'s history.',hintBn:'এই বছরের প্রাপ্তিস্বীকার/রসিদ যুক্ত করুন এবং মেয়াদ শেষের তারিখে পরবর্তী দাখিলের শেষ তারিখ দিন (যেমন 30 নভেম্বর)। পরের বছর দাখিল করার পর "Renewed" চাপুন — এই বছরের কপিটি ডকুমেন্টের history-তে থেকে যাবে।'},
   property:{label:'Property document',labelBn:'সম্পত্তির দলিল',icon:'🏠',lead:60,name:'Property document',cat:'property'},
   certificate:{label:'Certificate',labelBn:'সার্টিফিকেট',icon:'🎓',lead:30,name:'Certificate',cat:'education'},
   scan:{label:'Photo / Scan',labelBn:'ছবি / স্ক্যান',icon:'🖼️',lead:30,name:'Photo / Scan',cat:'other',noExpiry:true,hint:'For a photo, ID scan, or any keepsake that has no expiry — just store it safely.',hintBn:'এমন একটা ছবি, পরিচয়পত্রের স্ক্যান, বা এমন কিছু যার মেয়াদ শেষ হয় না — শুধু নিরাপদে সংরক্ষণ করুন।'},
@@ -776,6 +849,51 @@ function typeHint(T){ return (LANG==='bn' && T.hintBn) ? T.hintBn : T.hint; }
 var COMMON_TYPES = ['nid','passport','trade','tin','udc','insurance','property','certificate'];
 var URGENT_DAYS = 14;
 
+// Reference info shown in the document detail view: an approximate renewal
+// cost and the official Bangladesh government website for the types that
+// have one. Costs/URLs are approximate and can change — the UI always
+// labels this as approximate and points people to the official site to
+// confirm. Only types with a known, single official site are listed here;
+// types like insurance, warranty, certificates, or UDC documents (which
+// cover many different local services) are deliberately left out.
+var RENEWAL_INFO = {
+  nid:{
+    site:'Bangladesh Election Commission — NID Services', url:'https://services.nidw.gov.bd',
+    costEn:'৳115 for an address-only correction, ৳230 for a general correction, ৳345+ for a date-of-birth or other major correction. Re-issuing a lost or damaged card costs extra.',
+    costBn:'শুধু ঠিকানা সংশোধনে ৳115, সাধারণ সংশোধনে ৳230, জন্মতারিখ বা বড় সংশোধনে ৳345+। হারানো বা নষ্ট কার্ড পুনরায় ইস্যু করতে বাড়তি ফি লাগে।'
+  },
+  passport:{
+    site:'e-Passport Portal (Dept. of Immigration & Passports)', url:'https://www.epassport.gov.bd',
+    costEn:'৳3,000–৳5,000 for regular delivery (about 21 working days), up to ৳9,000 for super urgent (about 2 working days) — depends on 5-year vs 10-year validity.',
+    costBn:'সাধারণ ডেলিভারিতে (প্রায় 21 কার্যদিবস) ৳3,000–৳5,000, অতি জরুরি (প্রায় 2 কার্যদিবস) সর্বোচ্চ ৳9,000 পর্যন্ত — 5 বা 10 বছর মেয়াদের উপর নির্ভর করে।'
+  },
+  vehicle:{
+    site:'BRTA Service Portal', url:'https://bsp.brta.gov.bd',
+    costEn:'Driving licence renewal: roughly ৳2,487 (professional, 5 yrs) to ৳4,212 (non-professional, 10 yrs). Fitness certificate and tax token renewal fees vary by vehicle type and engine capacity — check the portal for your vehicle.',
+    costBn:'ড্রাইভিং লাইসেন্স নবায়ন: প্রায় ৳2,487 (পেশাদার, 5 বছর) থেকে ৳4,212 (অ-পেশাদার, 10 বছর)। ফিটনেস সার্টিফিকেট ও ট্যাক্স টোকেন নবায়নের ফি যানবাহনের ধরন ও ইঞ্জিন ক্ষমতার উপর নির্ভর করে — নিজের গাড়ির জন্য পোর্টালে দেখে নিন।'
+  },
+  trade:{
+    site:'Dhaka North City Corporation (or your local City Corporation/Union Parishad)', url:'https://dncc.gov.bd',
+    costEn:'Roughly ৳500 for small traders up to ৳50,000+ for large businesses, depending on business type, capital, and location. Renew through your own City Corporation or Union Parishad office — the link here is Dhaka North\'s as an example.',
+    costBn:'ছোট ব্যবসার জন্য প্রায় ৳500 থেকে বড় ব্যবসার জন্য ৳50,000+ পর্যন্ত, ব্যবসার ধরন, মূলধন ও এলাকার উপর নির্ভর করে। নিজের সিটি কর্পোরেশন বা ইউনিয়ন পরিষদ অফিসের মাধ্যমে নবায়ন করুন — এখানের লিংকটি উদাহরণ হিসেবে ঢাকা উত্তরের।'
+  },
+  tin:{
+    site:'NBR e-TIN (National Board of Revenue)', url:'https://etaxnbr.gov.bd',
+    costEn:'Free — a TIN certificate itself never expires and there\'s no renewal fee. You do need to file an income tax return every year to keep it active.',
+    costBn:'বিনামূল্যে — টিআইএন সনদের কোনো মেয়াদ শেষ হয় না এবং নবায়ন ফি নেই। তবে সক্রিয় রাখতে প্রতি বছর আয়কর রিটার্ন দাখিল করতে হয়।'
+  },
+  property:{
+    site:'Land Development Tax Portal (Ministry of Land)', url:'https://ldtax.gov.bd',
+    costEn:'Annual land development tax (khajna) — the amount depends on your land\'s classification, use, and location; commercial/residential rates are higher than agricultural ones. Pay online via the portal.',
+    costBn:'বার্ষিক ভূমি উন্নয়ন কর (খাজনা) — জমির শ্রেণি, ব্যবহার ও অবস্থানের উপর নির্ভর করে পরিমাণ ভিন্ন হয়; বাণিজ্যিক/আবাসিক হার কৃষি জমির চেয়ে বেশি। পোর্টালে অনলাইনে পরিশোধ করুন।'
+  },
+  birth:{
+    site:'Birth & Death Registration (BDRIS)', url:'https://bdris.gov.bd',
+    costEn:'A birth certificate itself doesn\'t need periodic renewal. Correcting one costs ৳50 (name, parents\' name, address, etc.) or ৳100 for a date-of-birth correction, done online.',
+    costBn:'জন্ম নিবন্ধন সনদের নিয়মিত নবায়ন লাগে না। সংশোধনের ক্ষেত্রে ৳50 (নাম, বাবা-মায়ের নাম, ঠিকানা ইত্যাদি) বা জন্মতারিখ সংশোধনে ৳100 লাগে, অনলাইনে করা যায়।'
+  }
+};
+
 /* ---------------- Automatic Categories ---------------- */
 // Fixed top-line categories plus whatever the user types themselves — the
 // category field is free text, this is just the suggested/default set.
@@ -786,6 +904,7 @@ var CATEGORIES = {
   property:{label:'Property',labelBn:'সম্পত্তি',icon:'🏠'},
   insurance:{label:'Insurance',labelBn:'বিমা',icon:'🛡️'},
   business:{label:'Business',labelBn:'ব্যবসা',icon:'🏪'},
+  tax:{label:'Tax',labelBn:'কর',icon:'📋'},
   other:{label:'Other',labelBn:'অন্যান্য',icon:'📄'}
 };
 function categoryLabel(key){
@@ -827,6 +946,20 @@ var SUB_CATEGORIES = {
   other:{label:'Other',labelBn:'অন্যান্য',icon:'🔁',recurrence:'monthly'}
 };
 function subCategoryLabel(T){ return LANG==='bn'?T.labelBn:T.label; }
+
+/* ---------------- Utility Bill Reminders ---------------- */
+// Same table and reminder machinery as Subscriptions (server-side kind=
+// 'utility'), but its own tab and its own category set — electricity, gas,
+// water, internet bills are a different everyday pain point (disconnection
+// notices) than Netflix/insurance/loans, so they get kept visually separate.
+var UTIL_CATEGORIES = {
+  electricity:{label:'Electricity',labelBn:'বিদ্যুৎ',icon:'⚡'},
+  gas:{label:'Gas',labelBn:'গ্যাস',icon:'🔥'},
+  water:{label:'Water',labelBn:'পানি',icon:'💧'},
+  internet:{label:'Internet',labelBn:'ইন্টারনেট',icon:'🌐'},
+  other:{label:'Other utility',labelBn:'অন্যান্য বিল',icon:'🧾'}
+};
+function utilCategoryLabel(T){ return LANG==='bn'?T.labelBn:T.label; }
 var $ = function(s){return document.querySelector(s);};
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function plural(n,w){return n+' '+w+(n===1?'':'s');}
@@ -880,6 +1013,8 @@ var STR = {
     never_expires:'Never expires', expires_today:'Expires today', no_expiry:'no expiry',
     dt_type:'Type', dt_belongs:'Belongs to', dt_number:'Document number', dt_issued:'Issued', dt_expires:'Expires',
     dt_notes:'Notes', dt_files:'Files', dt_history:'Renewal history',
+    dt_renewal_info:'Renewal info', renewal_cost_label:'Approx. cost', renewal_site_link:'Renew / official website',
+    renewal_disclaimer:'Costs and rules can change — always confirm the current amount on the official website before paying.',
     btn_show:'Show', btn_hide:'Hide', btn_copy:'Copy', btn_edit:'Edit', btn_delete:'Delete',
     btn_delete_confirm:'Tap again to delete', btn_view:'View', btn_open_file:'Open file',
     share_whatsapp:'Share via WhatsApp',
@@ -958,6 +1093,14 @@ var STR = {
     sub_form_title_add:'Add subscription', sub_form_title_edit:'Edit subscription', sub_no_due_date:'No due date set',
     sub_last_paid:'Last paid', sub_mark_paid:'Mark as paid', sub_renewed_toast:'Marked as paid — next due date updated',
     toast_sub_saved:'Subscription saved', err_could_not_load_subs:'Could not load your subscriptions.',
+    view_utilities:'Utilities', add_util_btn:'Add utility bill', field_util_due:'Monthly due date', field_util_name_ph:'e.g. Electricity — DESCO',
+    util_health_title:'Utility bills', util_health_overdue:'Overdue', util_health_soon:'Due soon', util_health_upcoming:'Upcoming',
+    util_empty_h2:'No utility bills yet', util_empty_p:'Electricity, gas, water, internet — add one and get an email reminder before the due date, so a missed bill never turns into a disconnection notice.', util_empty_cta:'Add your first utility bill',
+    util_form_title_add:'Add utility bill', util_form_title_edit:'Edit utility bill',
+    util_mark_paid:'Mark as paid', util_renewed_toast:'Marked as paid — next due date updated', toast_util_saved:'Utility bill saved',
+    field_warranty_len:'Warranty length', field_warranty_len_hint:'Uses the purchase date above to fill in the expiry date automatically.',
+    warranty_len_custom:'Custom (set expiry manually)', warranty_len_3m:'3 months', warranty_len_6m:'6 months', warranty_len_1y:'1 year',
+    warranty_len_2y:'2 years', warranty_len_3y:'3 years', warranty_len_5y:'5 years', warranty_len_10y:'10 years',
     btn_download:'Download', btn_share:'Share', toast_copied_summary:'Summary copied',
     btn_renewed:'Renewed', renew_title:'Renew this document',
     renew_lede:'Update the expiry date after renewing — the old details stay saved in this document’s history.',
@@ -1008,7 +1151,13 @@ var STR = {
     sessions_last_active:'Last active', toast_session_signed_out:'Device signed out', toast_other_sessions_signed_out:'Other devices signed out',
     err_could_not_load:'Could not load.',
     notif_empty:'No reminders sent yet for this document.',
-    notif_kind_added:'Document added', notif_kind_renewed:'Renewed', notif_kind_reminder:'Reminder sent', notif_failed_suffix:'(delivery failed)'
+    notif_kind_added:'Document added', notif_kind_renewed:'Renewed', notif_kind_reminder:'Reminder sent', notif_failed_suffix:'(delivery failed)',
+    trash_label:'Recently deleted', trash_lede:'A deleted document stays recoverable here for 30 days before it\'s gone for good.',
+    trash_manage_btn:'View recently deleted', trash_title:'Recently deleted',
+    trash_dlg_lede:'Deleted documents stay here for 30 days — with their files and history fully intact — before they\'re purged for good.',
+    trash_empty:'Nothing here right now.', trash_deleted_label:'Deleted', trash_restore_btn:'Restore',
+    trash_delete_forever_btn:'Delete forever', toast_doc_restored:'Document restored', toast_doc_purged:'Deleted for good',
+    err_could_not_restore:'Could not restore this document.', toast_doc_deleted_recoverable:'Deleted — recoverable for 30 days from Account → Recently deleted'
   },
   bn: {
     si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
@@ -1038,6 +1187,8 @@ var STR = {
     never_expires:'কখনো মেয়াদ শেষ হয় না', expires_today:'আজ মেয়াদ শেষ', no_expiry:'মেয়াদ নেই',
     dt_type:'ধরন', dt_belongs:'কার নামে', dt_number:'ডকুমেন্ট নম্বর', dt_issued:'ইস্যুর তারিখ', dt_expires:'মেয়াদ শেষ',
     dt_notes:'নোট', dt_files:'ফাইল', dt_history:'নবায়নের ইতিহাস',
+    dt_renewal_info:'নবায়ন তথ্য', renewal_cost_label:'আনুমানিক খরচ', renewal_site_link:'নবায়ন / সরকারি ওয়েবসাইট',
+    renewal_disclaimer:'খরচ ও নিয়ম পরিবর্তন হতে পারে — টাকা দেওয়ার আগে সরকারি ওয়েবসাইটে বর্তমান পরিমাণ নিশ্চিত করে নিন।',
     btn_show:'দেখান', btn_hide:'লুকান', btn_copy:'কপি করুন', btn_edit:'সম্পাদনা করুন', btn_delete:'মুছে ফেলুন',
     btn_delete_confirm:'মুছে ফেলতে আবার চাপুন', btn_view:'দেখুন', btn_open_file:'ফাইল খুলুন',
     share_whatsapp:'হোয়াটসঅ্যাপে শেয়ার করুন',
@@ -1116,6 +1267,14 @@ var STR = {
     sub_form_title_add:'সাবস্ক্রিপশন যোগ করুন', sub_form_title_edit:'সাবস্ক্রিপশন সম্পাদনা করুন', sub_no_due_date:'কোনো তারিখ নির্ধারণ করা নেই',
     sub_last_paid:'সর্বশেষ পরিশোধ', sub_mark_paid:'পরিশোধ হয়েছে বলে চিহ্নিত করুন', sub_renewed_toast:'পরিশোধ হয়েছে হিসেবে চিহ্নিত হয়েছে — পরবর্তী তারিখ আপডেট হয়েছে',
     toast_sub_saved:'সাবস্ক্রিপশন সংরক্ষিত হয়েছে', err_could_not_load_subs:'আপনার সাবস্ক্রিপশন লোড করা যায়নি।',
+    view_utilities:'ইউটিলিটি বিল', add_util_btn:'ইউটিলিটি বিল যোগ করুন', field_util_due:'মাসিক পরিশোধের তারিখ', field_util_name_ph:'যেমন: বিদ্যুৎ — DESCO',
+    util_health_title:'ইউটিলিটি বিল', util_health_overdue:'বকেয়া', util_health_soon:'শীঘ্রই পরিশোধ', util_health_upcoming:'আসন্ন',
+    util_empty_h2:'এখনো কোনো ইউটিলিটি বিল নেই', util_empty_p:'বিদ্যুৎ, গ্যাস, পানি, ইন্টারনেট — একটা যোগ করুন, পরিশোধের তারিখের আগে ইমেইল রিমাইন্ডার পাবেন, যাতে ভুলে যাওয়া বিল কখনো সংযোগ বিচ্ছিন্নের নোটিশে পরিণত না হয়।', util_empty_cta:'আপনার প্রথম ইউটিলিটি বিল যোগ করুন',
+    util_form_title_add:'ইউটিলিটি বিল যোগ করুন', util_form_title_edit:'ইউটিলিটি বিল সম্পাদনা করুন',
+    util_mark_paid:'পরিশোধ হয়েছে বলে চিহ্নিত করুন', util_renewed_toast:'পরিশোধ হয়েছে হিসেবে চিহ্নিত হয়েছে — পরবর্তী তারিখ আপডেট হয়েছে', toast_util_saved:'ইউটিলিটি বিল সংরক্ষিত হয়েছে',
+    field_warranty_len:'ওয়ারেন্টির মেয়াদ', field_warranty_len_hint:'উপরের কেনার তারিখ ব্যবহার করে মেয়াদ শেষের তারিখ নিজে থেকেই বসিয়ে দেয়।',
+    warranty_len_custom:'নিজে দিন (মেয়াদ নিজে সেট করুন)', warranty_len_3m:'3 মাস', warranty_len_6m:'6 মাস', warranty_len_1y:'1 বছর',
+    warranty_len_2y:'2 বছর', warranty_len_3y:'3 বছর', warranty_len_5y:'5 বছর', warranty_len_10y:'10 বছর',
     btn_download:'ডাউনলোড করুন', btn_share:'শেয়ার করুন', toast_copied_summary:'সারাংশ কপি হয়েছে',
     btn_renewed:'নবায়ন হয়েছে', renew_title:'ডকুমেন্ট নবায়ন করুন',
     renew_lede:'নবায়নের পর নতুন মেয়াদ শেষের তারিখ দিন — পুরনো তথ্য এই ডকুমেন্টের history-তে সংরক্ষিত থেকে যাবে।',
@@ -1166,7 +1325,13 @@ var STR = {
     sessions_last_active:'সর্বশেষ সক্রিয়', toast_session_signed_out:'ডিভাইস সাইন আউট হয়েছে', toast_other_sessions_signed_out:'অন্য ডিভাইসগুলো সাইন আউট হয়েছে',
     err_could_not_load:'লোড করা যায়নি।',
     notif_empty:'এই ডকুমেন্টের জন্য এখনো কোনো রিমাইন্ডার পাঠানো হয়নি।',
-    notif_kind_added:'ডকুমেন্ট যোগ করা হয়েছে', notif_kind_renewed:'নবায়ন হয়েছে', notif_kind_reminder:'রিমাইন্ডার পাঠানো হয়েছে', notif_failed_suffix:'(পাঠানো ব্যর্থ হয়েছে)'
+    notif_kind_added:'ডকুমেন্ট যোগ করা হয়েছে', notif_kind_renewed:'নবায়ন হয়েছে', notif_kind_reminder:'রিমাইন্ডার পাঠানো হয়েছে', notif_failed_suffix:'(পাঠানো ব্যর্থ হয়েছে)',
+    trash_label:'সম্প্রতি মোছা হয়েছে', trash_lede:'মোছার পর একটি ডকুমেন্ট ৩০ দিন পর্যন্ত এখানে পুনরুদ্ধারযোগ্য থাকে, তারপর চিরতরে মুছে যায়।',
+    trash_manage_btn:'সম্প্রতি মোছা দেখুন', trash_title:'সম্প্রতি মোছা হয়েছে',
+    trash_dlg_lede:'মোছা ডকুমেন্টগুলো ৩০ দিন এখানে থাকে — এর ফাইল ও হিস্টোরি সহ অক্ষত অবস্থায় — তারপর চিরতরে মুছে ফেলা হয়।',
+    trash_empty:'এই মুহূর্তে এখানে কিছু নেই।', trash_deleted_label:'মোছা হয়েছে', trash_restore_btn:'পুনরুদ্ধার করুন',
+    trash_delete_forever_btn:'চিরতরে মুছুন', toast_doc_restored:'ডকুমেন্ট পুনরুদ্ধার হয়েছে', toast_doc_purged:'চিরতরে মুছে ফেলা হয়েছে',
+    err_could_not_restore:'এই ডকুমেন্টটি পুনরুদ্ধার করা যায়নি।', toast_doc_deleted_recoverable:'মুছে ফেলা হয়েছে — Account → সম্প্রতি মোছা থেকে ৩০ দিন পর্যন্ত পুনরুদ্ধার করা যাবে'
   }
 };
 var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
@@ -1186,6 +1351,12 @@ function setLang(l){
   applyStaticI18n();
   if(typeof renderTypeOptions==='function'){ var cur=$('#f-type').value; renderTypeOptions(); $('#f-type').value=cur; }
   if(!$('#app').hidden){ render(); }
+  // The language button lives inside the Account dialog, so anything in
+  // that same dialog rendered dynamically (not via data-i18n) needs an
+  // explicit refresh too, or it's left showing the old language.
+  if($('#acctDlg').open){
+    if(typeof refreshSessionsUI==='function')refreshSessionsUI();
+  }
 }
 $('#acctLangBtn').addEventListener('click', function(){ setLang(LANG==='bn' ? 'en' : 'bn'); });
 applyStaticI18n();
@@ -1250,7 +1421,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','emergDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -2063,8 +2234,12 @@ function userNotifyLabels(){
 $('#userNotifyBtn').addEventListener('click',function(){
   enablePushNotifications('userNotifyStatus','userNotifyMsg','userNotifyBtn',false,userNotifyLabels());
 });
+var acctOriginalEmail='';
 $('#acctBtn').addEventListener('click',function(){
   $('#ac-name').value=user.name||'';$('#ac-email').value=user.email||'';$('#ac-phone').value=user.phone||'';
+  acctOriginalEmail=user.email||'';
+  $('#ac-current-password').value='';
+  $('#acCurrentPassRow').hidden=true;
   $('#acctMsg').textContent='';
   var initials=(user.name||'?').trim().split(/\s+/).slice(0,2).map(function(w){return w.charAt(0).toUpperCase();}).join('')||'?';
   $('#acctAvatarInitials').textContent=initials;
@@ -2079,12 +2254,22 @@ $('#acctBtn').addEventListener('click',function(){
   refreshSessionsUI();
   $('#acctDlg').showModal();
 });
+$('#ac-email').addEventListener('input',function(){
+  var changed=this.value.trim().toLowerCase()!==acctOriginalEmail.toLowerCase();
+  $('#acCurrentPassRow').hidden=!changed;
+  if(!changed)$('#ac-current-password').value='';
+});
 $('#acctForm').addEventListener('submit',function(e){
   e.preventDefault();
   var m=$('#acctMsg');
-  var payload={name:$('#ac-name').value.trim(),email:$('#ac-email').value.trim(),phone:$('#ac-phone').value.trim()};
+  var newEmail=$('#ac-email').value.trim();
+  var emailChanging=newEmail.toLowerCase()!==acctOriginalEmail.toLowerCase();
+  if(emailChanging&&!$('#ac-current-password').value){m.textContent=t('err_current_password_required');return;}
+  var payload={name:$('#ac-name').value.trim(),email:newEmail,phone:$('#ac-phone').value.trim()};
+  if(emailChanging)payload.currentPassword=$('#ac-current-password').value;
   api('/api/me',{method:'PUT',body:JSON.stringify(payload)}).then(function(){
     user.name=payload.name;user.email=payload.email;user.phone=payload.phone;
+    $('#ac-current-password').value='';
     $('#acctDlg').close();toast(t('toast_account_updated'));
   }).catch(function(e){m.textContent=e.error||t('err_could_not_save');});
 });
@@ -2284,6 +2469,45 @@ $('#emergManageBtn').addEventListener('click',function(){
   $('#emergDlg').showModal();
 });
 
+/* ---------------- Recently Deleted (Account dialog) ---------------- */
+function refreshTrashUI(){
+  var list=$('#trashList');
+  list.innerHTML='<li class="msg info" style="margin:0">'+(LANG==='bn'?'লোড হচ্ছে…':'Loading…')+'</li>';
+  api('/api/documents/deleted').then(function(res){
+    var rows=res.documents||[];
+    if(!rows.length){list.innerHTML='<li class="msg info" style="margin:0">'+t('trash_empty')+'</li>';return;}
+    list.innerHTML=rows.map(function(d){
+      var T=TYPES[d.type]||TYPES.other;
+      var meta=t('trash_deleted_label')+' '+esc(fmtDT(d.deleted_at));
+      return '<li><div class="file-row"><span class="nm">'+T.icon+' '+esc(d.title)+'<small>'+meta+'</small></span>'+
+        '<span><button class="btn small primary" type="button" data-restore="'+esc(d.id)+'">'+t('trash_restore_btn')+'</button> '+
+        '<button class="btn small danger" type="button" data-purge="'+esc(d.id)+'">'+t('trash_delete_forever_btn')+'</button></span></div></li>';
+    }).join('');
+    list.querySelectorAll('[data-restore]').forEach(function(b){
+      b.addEventListener('click',function(){
+        b.disabled=true;
+        api('/api/documents/'+b.dataset.restore+'/restore',{method:'POST'}).then(function(){
+          toast(t('toast_doc_restored'));refreshTrashUI();loadDocs();
+        }).catch(function(e){toast(e.error||t('err_could_not_restore'));b.disabled=false;});
+      });
+    });
+    list.querySelectorAll('[data-purge]').forEach(function(b){
+      var armed=false;
+      b.addEventListener('click',function(){
+        if(!armed){armed=true;b.classList.add('armed');b.textContent=t('btn_delete_confirm');return;}
+        b.disabled=true;
+        api('/api/documents/'+b.dataset.purge+'/forever',{method:'DELETE'}).then(function(){
+          toast(t('toast_doc_purged'));refreshTrashUI();
+        }).catch(function(e){toast(e.error||t('err_could_not_delete'));b.disabled=false;});
+      });
+    });
+  }).catch(function(){list.innerHTML='<li class="msg" role="alert" style="margin:0">'+t('err_could_not_load')+'</li>';});
+}
+$('#trashManageBtn').addEventListener('click',function(){
+  refreshTrashUI();
+  $('#trashDlg').showModal();
+});
+
 /* ---------------- main list / hero ---------------- */
 function sortedDocs(list){
   return list.slice().sort(function(a,b){
@@ -2415,6 +2639,9 @@ function renderLifeAlert(count, items){
       if(btn.dataset.kind==='subscription'){
         if(!subs.length){ loadSubs().then(function(){ openSubDetail(btn.dataset.id); }); }
         else { openSubDetail(btn.dataset.id); }
+      } else if(btn.dataset.kind==='utility'){
+        if(!subs.length){ loadSubs().then(function(){ openUtilDetail(btn.dataset.id); }); }
+        else { openUtilDetail(btn.dataset.id); }
       } else {
         openDetail(btn.dataset.id);
       }
@@ -2571,8 +2798,9 @@ $('#viewSwitch').addEventListener('click',function(e){
   var view=b.dataset.view;
   $('#docsView').hidden=view!=='docs';
   $('#subsView').hidden=view!=='subs';
+  $('#utilsView').hidden=view!=='utils';
   $('#addBtn').hidden=view!=='docs';
-  if(view==='subs'){ loadSubs(); }
+  if(view==='subs'||view==='utils'){ loadSubs(); }
 });
 
 /* ---------------- detail dialog ---------------- */
@@ -2602,6 +2830,15 @@ function openDetail(id){
       var msText=ms.map(function(m){return m===0?t('milestone_due_today'):(LANG==='bn'?(m+' দিন আগে'):(m+(m===1?' day':' days')+' before'));}).join(', ');
       html+='<div><dt>'+t('dt_reminders')+'</dt><dd>'+esc(msText)+'</dd></div>';
     }
+  }
+  var rinfo=RENEWAL_INFO[d.type];
+  if(rinfo){
+    var rcost=LANG==='bn'?rinfo.costBn:rinfo.costEn;
+    html+='<div><dt>'+t('dt_renewal_info')+'</dt><dd>'+
+      '<div><strong>'+t('renewal_cost_label')+':</strong> '+esc(rcost)+'</div>'+
+      '<div><a href="'+esc(rinfo.url)+'" target="_blank" rel="noopener">'+esc(t('renewal_site_link'))+' — '+esc(rinfo.site)+'</a></div>'+
+      '<small>'+esc(t('renewal_disclaimer'))+'</small>'+
+      '</dd></div>';
   }
   if(d.notes)html+='<div><dt>'+t('dt_notes')+'</dt><dd>'+esc(d.notes).replace(/\n/g,'<br>')+'</dd></div>';
   if(d.files&&d.files.length){
@@ -2656,7 +2893,7 @@ function openDetail(id){
     if(!armed){armed=true;db.classList.add('armed');db.textContent=t('btn_delete_confirm');return;}
     db.disabled=true;
     api('/api/documents/'+d.id,{method:'DELETE'}).then(function(){
-      $('#viewDlg').close();toast(t('toast_deleted'));loadDocs();
+      $('#viewDlg').close();toast(t('toast_doc_deleted_recoverable'));loadDocs();
     }).catch(function(e){toast(e.error||t('err_could_not_delete'));db.disabled=false;});
   });
   $('#viewBody').querySelectorAll('[data-view]').forEach(function(b){
@@ -2762,6 +2999,28 @@ function applyDateRowVisibility(T){
   $('#leadWrap').hidden = hide || !$('#f-expiry').value;
   var mw=$('#milestoneWrap');if(mw)mw.hidden = hide || !$('#f-expiry').value;
 }
+// Warranty tracker: purchase date + a chosen warranty length auto-fills the
+// expiry date, so nobody has to do the "bought it in March, 2-year
+// warranty, so it runs out when?" math themselves.
+function addMonths(dateStr,months){
+  if(!dateStr||!months)return '';
+  var d=new Date(dateStr+'T00:00:00');
+  d.setMonth(d.getMonth()+Number(months));
+  return d.toISOString().slice(0,10);
+}
+function applyWarrantyRowVisibility(T){
+  $('#warrantyLenWrap').hidden=!(T&&T.warranty);
+}
+function recalcWarrantyExpiry(){
+  var T=TYPES[$('#f-type').value];
+  if(!T||!T.warranty)return;
+  var months=$('#f-warranty-len').value,issue=$('#f-issue').value;
+  if(months&&issue){
+    $('#f-expiry').value=addMonths(issue,months);
+    $('#f-expiry').dispatchEvent(new Event('input'));
+  }
+}
+$('#f-warranty-len').addEventListener('change',recalcWarrantyExpiry);
 $('#f-type').addEventListener('change',function(){
   var T=TYPES[this.value];
   if(!editingId){$('#f-lead').value=String(T.lead);}
@@ -2778,10 +3037,13 @@ $('#f-type').addEventListener('change',function(){
   var cat=$('#f-category');
   if(!editingId&&(!cat.value||cat.dataset.auto==='1')){cat.value=categoryLabel(T.cat||'other');cat.dataset.auto='1';}
   applyDateRowVisibility(T);
+  applyWarrantyRowVisibility(T);
+  if(!editingId){$('#f-warranty-len').value='';}
 });
 $('#f-title').addEventListener('input',function(){this.dataset.auto='0';});
 $('#f-notes').addEventListener('input',function(){this.dataset.auto='0';});
 $('#f-category').addEventListener('input',function(){this.dataset.auto='0';});
+$('#f-issue').addEventListener('input',recalcWarrantyExpiry);
 $('#f-expiry').addEventListener('input',function(){$('#leadWrap').hidden=!this.value;var mw=$('#milestoneWrap');if(mw)mw.hidden=!this.value;});
 
 /* ---------------- Smart Reminder System: milestone chips ---------------- */
@@ -2966,6 +3228,8 @@ function openForm(id){
   $('#f-notes').dataset.auto=d?'0':'1';
   renderMilestoneChips($('#milestoneChips'), d&&d.reminder_days&&d.reminder_days.length ? d.reminder_days : DEFAULT_DOC_MILESTONES_CLIENT, DOC_MILESTONE_OPTIONS);
   applyDateRowVisibility(T);
+  applyWarrantyRowVisibility(T);
+  $('#f-warranty-len').value='';
   renderCategoryList();
   $('#formMsg').textContent='';
   $('#f-files').value='';
@@ -3015,19 +3279,25 @@ function sortedSubs(list){
     return a.name.localeCompare(b.name);
   });
 }
+// `subs` holds BOTH ordinary subscriptions and utility bills (same table,
+// same /api/subscriptions endpoint, distinguished by s.kind) — these two
+// helpers split it for each tab's own rendering.
+function subsOnly(){ return subs.filter(function(s){return s.kind!=='utility';}); }
+function utilsOnly(){ return subs.filter(function(s){return s.kind==='utility';}); }
 function loadSubs(){
   return api('/api/subscriptions').then(function(data){
     subs=data.subscriptions||[];
     subs.forEach(function(s){ if(!Array.isArray(s.reminder_days))s.reminder_days=[]; });
     renderSubs();
+    renderUtils();
     loadWeeklyAlert();
   }).catch(function(e){toast(e.error||t('err_could_not_load_subs'));});
 }
 function renderSubHealthDash(){
-  var el=$('#subHealthDash');
-  if(!subs.length){el.innerHTML='';return;}
+  var el=$('#subHealthDash'),list=subsOnly();
+  if(!list.length){el.innerHTML='';return;}
   var overdue=0,soon=0,upcoming=0;
-  subs.forEach(function(s){
+  list.forEach(function(s){
     var n=subDaysLeft(s);
     if(n===null)return;
     if(n<0){overdue++;return;}
@@ -3038,7 +3308,7 @@ function renderSubHealthDash(){
   var html='<h2>'+t('sub_health_title')+'</h2><div class="health-grid">'+tiles.map(function(x){
     return '<div class="health-tile '+x[0]+'"><b>'+x[1]+'</b><span>'+x[2]+'</span></div>';
   }).join('')+'</div>';
-  var next=sortedSubs(subs).filter(function(s){var n=subDaysLeft(s);return n!==null;})[0];
+  var next=sortedSubs(list).filter(function(s){var n=subDaysLeft(s);return n!==null;})[0];
   if(next){
     var C=subCatOf(next),n=subDaysLeft(next);
     html+='<button type="button" class="next-expiry" data-subopen="'+esc(next.id)+'"><span class="ic">'+C.icon+'</span><span><span class="nm">'+esc(next.name)+'</span><br><span class="wh">'+esc(whenText(n))+'</span></span></button>';
@@ -3048,13 +3318,13 @@ function renderSubHealthDash(){
 $('#subHealthDash').addEventListener('click',function(e){var b=e.target.closest('[data-subopen]');if(b)openSubDetail(b.dataset.subopen);});
 function renderSubs(){
   renderSubHealthDash();
-  var ul=$('#subList'),em=$('#subEmpty');
-  if(!subs.length){
+  var ul=$('#subList'),em=$('#subEmpty'),list=subsOnly();
+  if(!list.length){
     ul.innerHTML='';em.hidden=false;
     em.innerHTML='<h2>'+t('sub_empty_h2')+'</h2><p>'+t('sub_empty_p')+'</p><div class="cta"><button class="btn primary" type="button" data-act="addsub">'+t('sub_empty_cta')+'</button></div>';
   } else {
     em.hidden=true;
-    ul.innerHTML=sortedSubs(subs).map(function(s){
+    ul.innerHTML=sortedSubs(list).map(function(s){
       var n=subDaysLeft(s),C=subCatOf(s),tn=subTone(s);
       var countHtml = n===null ? '<span class="count none"><b>&ndash;</b><small>'+t('no_expiry')+'</small></span>'
         : n<0 ? '<span class="count red"><b>'+(-n)+'</b><small>'+(LANG==='bn'?'দিন বাকি (বকেয়া)':((n===-1?'day':'days')+' overdue'))+'</small></span>'
@@ -3109,7 +3379,7 @@ $('#subForm').addEventListener('submit',function(e){
   if(!name){msg.textContent=t('err_give_name');$('#s-name').focus();return;}
   var payload={category:$('#s-category').value,name:name,profileId:$('#s-profile').value||null,
     amount:$('#s-amount').value.trim(),recurrence:$('#s-recurrence').value,nextDue:$('#s-nextdue').value,
-    notes:$('#s-notes').value.trim(),reminderDays:getMilestoneValues($('#subMilestoneChips'))};
+    notes:$('#s-notes').value.trim(),reminderDays:getMilestoneValues($('#subMilestoneChips')),kind:'subscription'};
   btn.disabled=true;btn.textContent=t('saving');
   var save = editingSubId
     ? api('/api/subscriptions/'+editingSubId,{method:'PUT',body:JSON.stringify(payload)})
@@ -3161,6 +3431,150 @@ function openSubDetail(id){
     }).catch(function(e){toast(e.error||t('err_could_not_delete'));db.disabled=false;});
   });
   var dlg=$('#subViewDlg');if(!dlg.open)dlg.showModal();
+}
+
+/* ==================== Utility Bill Reminders ==================== */
+// Deliberately its own tab and category set (electricity/gas/water/
+// internet), even though under the hood it shares the exact same table,
+// endpoints, and reminder sweep as Subscriptions (kind='utility') — see
+// subsOnly()/utilsOnly() above. Every utility bill is a fixed monthly due
+// date, so there's no "repeats" selector here the way Subscriptions has one.
+function utilCatOf(s){ return UTIL_CATEGORIES[s.category]||UTIL_CATEGORIES.other; }
+function renderUtilHealthDash(){
+  var el=$('#utilHealthDash'),list=utilsOnly();
+  if(!list.length){el.innerHTML='';return;}
+  var overdue=0,soon=0,upcoming=0;
+  list.forEach(function(s){
+    var n=subDaysLeft(s);
+    if(n===null)return;
+    if(n<0){overdue++;return;}
+    if(n<=30){soon++;return;}
+    upcoming++;
+  });
+  var tiles=[['red',overdue,t('sub_health_overdue')],['amber',soon,t('sub_health_soon')],['green',upcoming,t('sub_health_upcoming')]];
+  var html='<h2>'+t('util_health_title')+'</h2><div class="health-grid">'+tiles.map(function(x){
+    return '<div class="health-tile '+x[0]+'"><b>'+x[1]+'</b><span>'+x[2]+'</span></div>';
+  }).join('')+'</div>';
+  var next=sortedSubs(list).filter(function(s){var n=subDaysLeft(s);return n!==null;})[0];
+  if(next){
+    var C=utilCatOf(next),n=subDaysLeft(next);
+    html+='<button type="button" class="next-expiry" data-utilopen="'+esc(next.id)+'"><span class="ic">'+C.icon+'</span><span><span class="nm">'+esc(next.name)+'</span><br><span class="wh">'+esc(whenText(n))+'</span></span></button>';
+  }
+  el.innerHTML=html;
+}
+$('#utilHealthDash').addEventListener('click',function(e){var b=e.target.closest('[data-utilopen]');if(b)openUtilDetail(b.dataset.utilopen);});
+function renderUtils(){
+  renderUtilHealthDash();
+  var ul=$('#utilList'),em=$('#utilEmpty'),list=utilsOnly();
+  if(!list.length){
+    ul.innerHTML='';em.hidden=false;
+    em.innerHTML='<h2>'+t('util_empty_h2')+'</h2><p>'+t('util_empty_p')+'</p><div class="cta"><button class="btn primary" type="button" data-act="addutil">'+t('util_empty_cta')+'</button></div>';
+  } else {
+    em.hidden=true;
+    ul.innerHTML=sortedSubs(list).map(function(s){
+      var n=subDaysLeft(s),C=utilCatOf(s),tn=subTone(s);
+      var countHtml = n===null ? '<span class="count none"><b>&ndash;</b><small>'+t('no_expiry')+'</small></span>'
+        : n<0 ? '<span class="count red"><b>'+(-n)+'</b><small>'+(LANG==='bn'?'দিন বাকি (বকেয়া)':((n===-1?'day':'days')+' overdue'))+'</small></span>'
+        : '<span class="count '+tn+'"><b>'+n+'</b><small>'+(LANG==='bn'?'দিন বাকি':((n===1?'day':'days')+' left'))+'</small></span>';
+      return '<li><button type="button" class="row" data-utilopen="'+esc(s.id)+'">'+countHtml+
+        '<span class="info"><span class="t">'+C.icon+' '+esc(s.name)+'</span>'+
+        '<span class="d">'+(s.next_due?esc(fmt(s.next_due)):t('sub_no_due_date'))+'</span>'+
+        '<span class="s">'+esc(utilCategoryLabel(C))+(s.amount?(' · '+esc(s.amount)):'')+'</span></span>'+
+        '<span class="chev" aria-hidden="true">&rsaquo;</span></button></li>';
+    }).join('');
+  }
+}
+$('#utilList').addEventListener('click',function(e){var b=e.target.closest('[data-utilopen]');if(b)openUtilDetail(b.dataset.utilopen);});
+$('#utilEmpty').addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(b&&b.dataset.act==='addutil')openUtilForm();});
+$('#addUtilBtn').addEventListener('click',function(){openUtilForm();});
+
+function renderUtilCategoryOptions(){
+  $('#u-category').innerHTML=Object.keys(UTIL_CATEGORIES).map(function(k){
+    return '<option value="'+k+'">'+UTIL_CATEGORIES[k].icon+' '+esc(utilCategoryLabel(UTIL_CATEGORIES[k]))+'</option>';
+  }).join('');
+}
+$('#u-category').addEventListener('change',function(){
+  if(editingUtilId)return;
+  var nm=$('#u-name');
+  if(!nm.value.trim()){var C=UTIL_CATEGORIES[this.value];if(C)nm.value=utilCategoryLabel(C);}
+});
+var editingUtilId=null;
+function openUtilForm(id){
+  editingUtilId=id||null;
+  var s=id?utilsOnly().find(function(x){return x.id===id;}):null;
+  renderUtilCategoryOptions();
+  renderProfileSelect($('#u-profile'));
+  $('#utilFormTitle').textContent=s?t('util_form_title_edit'):t('util_form_title_add');
+  $('#u-category').value=s?s.category:'electricity';
+  $('#u-name').value=s?s.name:'';
+  $('#u-profile').value=s?(s.profile_id||''):'';
+  $('#u-amount').value=s?(s.amount||''):'';
+  $('#u-nextdue').value=s?(s.next_due||''):'';
+  $('#u-notes').value=s?(s.notes||''):'';
+  renderMilestoneChips($('#utilMilestoneChips'), s&&s.reminder_days&&s.reminder_days.length ? s.reminder_days : DEFAULT_SUB_MILESTONES_CLIENT, SUB_MILESTONE_OPTIONS);
+  $('#utilFormMsg').textContent='';
+  $('#utilSaveBtn').disabled=false;$('#utilSaveBtn').textContent=t('save');
+  $('#utilFormDlg').showModal();
+  setTimeout(function(){$('#u-name').focus();},30);
+}
+$('#utilForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var msg=$('#utilFormMsg'),btn=$('#utilSaveBtn');msg.textContent='';
+  var name=$('#u-name').value.trim();
+  if(!name){msg.textContent=t('err_give_name');$('#u-name').focus();return;}
+  var payload={category:$('#u-category').value,name:name,profileId:$('#u-profile').value||null,
+    amount:$('#u-amount').value.trim(),recurrence:'monthly',nextDue:$('#u-nextdue').value,
+    notes:$('#u-notes').value.trim(),reminderDays:getMilestoneValues($('#utilMilestoneChips')),kind:'utility'};
+  btn.disabled=true;btn.textContent=t('saving');
+  var save = editingUtilId
+    ? api('/api/subscriptions/'+editingUtilId,{method:'PUT',body:JSON.stringify(payload)})
+    : api('/api/subscriptions',{method:'POST',body:JSON.stringify(payload)});
+  save.then(function(){
+    $('#utilFormDlg').close();toast(editingUtilId?t('toast_changes_saved'):t('toast_util_saved'));loadSubs();
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){btn.disabled=false;btn.textContent=t('save');});
+});
+
+function openUtilDetail(id){
+  var s=utilsOnly().find(function(x){return x.id===id;});if(!s)return;
+  var C=utilCatOf(s),n=subDaysLeft(s),tn=subTone(s);
+  $('#utilViewTitle').textContent=C.icon+' '+s.name;
+  var status;
+  if(n===null)status=t('sub_no_due_date');
+  else if(n<0)status=LANG==='bn'?((-n)+' দিন আগে বকেয়া হয়ে গেছে'):('Overdue by '+plural(-n,'day'));
+  else if(n===0)status=LANG==='bn'?'আজ পরিশোধ করতে হবে':'Due today';
+  else status=LANG==='bn'?(n+' দিন বাকি'):(plural(n,'day')+' left');
+  var html='<span class="status-line '+tn+'">'+esc(status)+'</span><dl class="facts">';
+  html+='<div><dt>'+t('dt_category')+'</dt><dd>'+esc(utilCategoryLabel(C))+'</dd></div>';
+  var prof=s.profile_id?profiles.filter(function(p){return p.id===s.profile_id;})[0]:null;
+  if(prof)html+='<div><dt>'+t('dt_family')+'</dt><dd>'+esc(prof.name)+' ('+esc(relationLabel(prof.relation))+')</dd></div>';
+  if(s.amount)html+='<div><dt>'+t('field_amount')+'</dt><dd>'+esc(s.amount)+'</dd></div>';
+  if(s.next_due)html+='<div><dt>'+t('field_util_due')+'</dt><dd>'+esc(fmt(s.next_due))+'</dd></div>';
+  if(s.last_paid_at)html+='<div><dt>'+t('sub_last_paid')+'</dt><dd>'+esc(new Date(Number(s.last_paid_at)).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}))+'</dd></div>';
+  if(s.notes)html+='<div><dt>'+t('dt_notes')+'</dt><dd>'+esc(s.notes).replace(/\n/g,'<br>')+'</dd></div>';
+  html+='</dl>';
+  $('#utilViewBody').innerHTML=html;
+
+  $('#utilViewActions').innerHTML=
+    '<button class="btn" type="button" id="utilEditBtn">'+t('btn_edit')+'</button>'+
+    (s.next_due?'<button class="btn primary" type="button" id="utilPaidBtn">'+t('util_mark_paid')+'</button>':'')+
+    '<span class="grow"></span><button class="btn danger" type="button" id="utilDelBtn">'+t('btn_delete')+'</button>';
+  $('#utilEditBtn').addEventListener('click',function(){$('#utilViewDlg').close();openUtilForm(s.id);});
+  var pb=$('#utilPaidBtn');
+  if(pb)pb.addEventListener('click',function(){
+    pb.disabled=true;
+    api('/api/subscriptions/'+s.id+'/renew',{method:'POST'}).then(function(){
+      $('#utilViewDlg').close();toast(t('util_renewed_toast'));loadSubs();
+    }).catch(function(e){toast(e.error||t('err_could_not_save'));pb.disabled=false;});
+  });
+  var armed=false,db=$('#utilDelBtn');
+  db.addEventListener('click',function(){
+    if(!armed){armed=true;db.classList.add('armed');db.textContent=t('btn_delete_confirm');return;}
+    db.disabled=true;
+    api('/api/subscriptions/'+s.id,{method:'DELETE'}).then(function(){
+      $('#utilViewDlg').close();toast(t('toast_deleted'));loadSubs();
+    }).catch(function(e){toast(e.error||t('err_could_not_delete'));db.disabled=false;});
+  });
+  var dlg=$('#utilViewDlg');if(!dlg.open)dlg.showModal();
 }
 
 /* ---------------- Sany: free, rule-based FAQ helper (no external API) ---------------- */
@@ -3245,7 +3659,7 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','emergDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 

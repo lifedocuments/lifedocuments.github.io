@@ -321,6 +321,9 @@ app.post('/api/reset', wrap(async (req, res) => {
   }
   const hash = await bcrypt.hash(password, 10);
   await db.updateUser(u.id, { password_hash: hash, reset_token: null, reset_expires: null });
+  sendMail(u.email, 'Your Life Documents password was changed',
+    'Your account password was just changed.\n\nIf this was not you, someone else may have access to your account — request a new password reset link right away from the sign-in screen.'
+  ).catch(e => console.error('Password-changed notice failed for', u.email, e.message));
   res.json({ ok: true });
 }));
 
@@ -331,8 +334,31 @@ app.get('/api/me', auth, wrap(async (req, res) => {
 }));
 
 app.put('/api/me', auth, wrap(async (req, res) => {
-  const { name, email, phone } = req.body || {};
-  await db.updateUser(req.userId, { name: name || '', email: String(email || '').toLowerCase().trim(), phone: phone || '' });
+  const { name, phone, currentPassword } = req.body || {};
+  const u = await db.findUserById(req.userId);
+  if (!u) return res.status(404).json({ error: 'Account not found.' });
+  const newEmail = String(req.body && req.body.email || '').toLowerCase().trim();
+  const emailChanging = newEmail && newEmail !== u.email;
+  // Changing the sign-in email is the one account-settings change that lets
+  // someone silently lock the real owner out (all future password resets
+  // would go to the new address instead) — so it needs the current password,
+  // same as the PIN routes below, and the old inbox is told either way.
+  if (emailChanging) {
+    const ok = await bcrypt.compare(currentPassword || '', u.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Enter your current password to change your email.' });
+    const existing = await db.findUserByEmail(newEmail);
+    if (existing && existing.id !== u.id) return res.status(409).json({ error: 'An account with that email already exists.' });
+  }
+  await db.updateUser(req.userId, { name: name || '', email: newEmail || u.email, phone: phone || '' });
+  if (emailChanging) {
+    sendMail(u.email, 'Your Life Documents email was changed',
+      'Your account sign-in email was just changed from ' + u.email + ' to ' + newEmail + '.\n\n' +
+      'If you did not make this change, someone else may have access to your account — contact us right away using the "Send a suggestion" option in the app.'
+    ).catch(e => console.error('Old-email change notice failed for', u.email, e.message));
+    sendMail(newEmail, 'This is now your Life Documents sign-in email',
+      'This email address is now the sign-in email for your Life Documents account (it was previously ' + u.email + ').'
+    ).catch(e => console.error('New-email change notice failed for', newEmail, e.message));
+  }
   res.json({ ok: true });
 }));
 
@@ -424,11 +450,11 @@ app.get('/api/me/export', auth, wrap(async (req, res) => {
   });
   archive.append(docLines.join('\r\n'), { name: 'documents.csv' });
 
-  const subHeader = ['Name', 'Category', 'Amount', 'Recurrence', 'Next due', 'Notes'];
+  const subHeader = ['Name', 'Kind', 'Category', 'Amount', 'Recurrence', 'Next due', 'Notes'];
   const subLines = [subHeader.join(',')];
   subs.forEach(s => {
     subLines.push([
-      csvCell(s.name), csvCell(s.category || ''), csvCell(s.amount || ''),
+      csvCell(s.name), csvCell(s.kind === 'utility' ? 'Utility bill' : 'Subscription'), csvCell(s.category || ''), csvCell(s.amount || ''),
       csvCell(s.recurrence || ''), csvCell(s.next_due || ''), csvCell(s.notes || '')
     ].join(','));
   });
@@ -901,13 +927,39 @@ app.put('/api/documents/:id', auth, wrap(async (req, res) => {
   }
 }));
 
-app.delete('/api/documents/:id', auth, wrap(async (req, res) => {
-  const d = await db.findDocument(req.params.id, req.userId);
-  if (!d) return res.status(404).json({ error: 'Not found.' });
+// Recently Deleted: deleting a document only hides it (nothing about it is
+// actually removed — files, bundle membership, reminder history all stay
+// intact) for 30 days, so a wrong tap is never unrecoverable. A nightly
+// sweep (below) purges anything past that window for good.
+async function purgeDocumentForever(d) {
   await db.deleteFilesByDocument(d.id);
   await db.deleteNotifiedByDocument(d.id);
   await db.deleteBundleItemsByDocument(d.id);
   await db.deleteDocument(d.id);
+}
+
+app.delete('/api/documents/:id', auth, wrap(async (req, res) => {
+  const d = await db.findDocument(req.params.id, req.userId);
+  if (!d) return res.status(404).json({ error: 'Not found.' });
+  await db.softDeleteDocument(d.id, req.userId, Date.now());
+  res.json({ ok: true });
+}));
+
+app.get('/api/documents/deleted', auth, wrap(async (req, res) => {
+  const rows = await db.listDeletedDocumentsByUser(req.userId);
+  res.json({ documents: rows });
+}));
+
+app.post('/api/documents/:id/restore', auth, wrap(async (req, res) => {
+  const ok = await db.restoreDocument(req.params.id, req.userId);
+  if (!ok) return res.status(404).json({ error: 'Not found.' });
+  res.json({ ok: true });
+}));
+
+app.delete('/api/documents/:id/forever', auth, wrap(async (req, res) => {
+  const d = await db.findDeletedDocument(req.params.id, req.userId);
+  if (!d) return res.status(404).json({ error: 'Not found.' });
+  await purgeDocumentForever(d);
   res.json({ ok: true });
 }));
 
@@ -923,6 +975,12 @@ app.get('/api/documents/:id/notifications', auth, wrap(async (req, res) => {
 
 /* ---------------- subscriptions & recurring payments ---------------- */
 function isValidRecurrence(r) { return r === 'monthly' || r === 'yearly'; }
+// Utility bills live in the same table as ordinary subscriptions (same
+// reminder sweep, renew, CSV export, Life Admin Alert) but tagged with
+// kind='utility' so the frontend can give them their own tab and category
+// set (electricity/gas/water/internet) instead of mixing them in with
+// Netflix/insurance/loans.
+function isValidKind(k) { return k === 'subscription' || k === 'utility'; }
 // Moves a YYYY-MM-DD date forward by one billing cycle, from the due date
 // itself (not from today) so a fixed schedule (e.g. "the 5th of every
 // month") stays on the 5th even if it's marked paid a few days late.
@@ -941,13 +999,14 @@ app.post('/api/subscriptions', auth, wrap(async (req, res) => {
   const b = req.body || {};
   if (!b.name || !String(b.name).trim()) return res.status(400).json({ error: 'Give this subscription a name.' });
   const recurrence = isValidRecurrence(b.recurrence) ? b.recurrence : 'monthly';
+  const kind = isValidKind(b.kind) ? b.kind : 'subscription';
   const id = uuid();
   await db.insertSubscription({
     id, user_id: req.userId, profile_id: await cleanProfileId(req.userId, b.profileId),
     category: b.category ? String(b.category).trim().slice(0, 40) : 'other',
     name: String(b.name).trim(), amount: b.amount ? String(b.amount).trim().slice(0, 30) : '',
     recurrence, next_due: b.nextDue || '', reminder_days: cleanMilestones(b.reminderDays, DEFAULT_SUB_MILESTONES),
-    notes: b.notes || '', created_at: Date.now()
+    notes: b.notes || '', created_at: Date.now(), kind
   });
   res.json({ id });
 }));
@@ -1053,7 +1112,7 @@ async function weeklyAlertItemsForUser(userId) {
   });
   subs.forEach(s => {
     const dl = daysLeft(s.next_due);
-    if (dl !== null && dl <= WEEKLY_ALERT_WINDOW_DAYS) items.push({ kind: 'subscription', id: s.id, title: s.name, daysLeft: dl });
+    if (dl !== null && dl <= WEEKLY_ALERT_WINDOW_DAYS) items.push({ kind: s.kind === 'utility' ? 'utility' : 'subscription', id: s.id, title: s.name, daysLeft: dl });
   });
   items.sort((a, b) => a.daysLeft - b.daysLeft);
   return items;
@@ -1462,6 +1521,7 @@ app.get('/api/emergency-access/view/:token/files/:fileId', wrap(async (req, res)
 // milestone's email doesn't go out; it does not cause a backlog of emails.
 async function runReminderSweep() {
   const todayISO = new Date().toISOString().slice(0, 10);
+  const appLink = process.env.FRONTEND_URL || '';
   const rows = await db.allDocumentsWithExpiry();
   for (const d of rows) {
     const dl = daysLeft(d.expiry);
@@ -1480,12 +1540,22 @@ async function runReminderSweep() {
       console.error('Reminder email failed for document', d.id, e.message);
       await db.insertNotificationLog({ id: uuid(), user_id: d.user_id, document_id: d.id, kind: 'reminder', detail: when, success: false, created_at: Date.now() }).catch(() => {});
     }
+    // Best-effort phone push at the same milestone, to whichever of the
+    // user's devices have notifications turned on. This is the closest a
+    // web app can get to a home-screen widget without a native mobile
+    // app: the item and days-left show up on the lock screen / notification
+    // shade without opening the app at all. Never blocks or fails the sweep.
+    try {
+      const pushSubs = await db.listPushSubscriptionsByUser(d.user_id);
+      if (pushSubs.length) await sendPushToSubscriptions(pushSubs, subject, body, appLink);
+    } catch (e) { console.error('Reminder push failed for document', d.id, e.message); }
   }
 }
 cron.schedule('0 9 * * *', runReminderSweep);
 
 /* ---------------- subscription & payment reminders ---------------- */
 async function runSubscriptionReminderSweep() {
+  const appLink = process.env.FRONTEND_URL || '';
   const rows = await db.allSubscriptionsWithDue();
   for (const s of rows) {
     const dl = daysLeft(s.next_due);
@@ -1502,6 +1572,12 @@ async function runSubscriptionReminderSweep() {
     } catch (e) {
       console.error('Subscription reminder email failed for', s.id, e.message);
     }
+    // See the matching comment in runReminderSweep — same best-effort push,
+    // covers subscriptions and utility bills alike.
+    try {
+      const pushSubs = await db.listPushSubscriptionsByUser(s.user_id);
+      if (pushSubs.length) await sendPushToSubscriptions(pushSubs, subject, body, appLink);
+    } catch (e) { console.error('Subscription reminder push failed for', s.id, e.message); }
   }
 }
 cron.schedule('0 9 * * *', runSubscriptionReminderSweep);
@@ -1588,6 +1664,23 @@ async function runWeeklyEngagementSweep() {
 }
 // Monday 10:00 server time (UTC on Render) — mid-afternoon in Bangladesh.
 cron.schedule('0 10 * * 1', runWeeklyEngagementSweep);
+
+/* ---------------- Recently Deleted: nightly purge sweep ---------------- */
+// Anything soft-deleted more than 30 days ago is gone for good from here —
+// this is the only place a document (and its files) actually gets removed
+// on a timer, separate from a person tapping "Delete forever" themselves.
+async function runTrashPurgeSweep() {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const due = await db.listDocumentsPastPurgeDate(cutoff);
+  for (const d of due) {
+    try {
+      await purgeDocumentForever(d);
+    } catch (e) {
+      console.error('Trash purge failed for document', d.id, e.message);
+    }
+  }
+}
+cron.schedule('30 9 * * *', runTrashPurgeSweep);
 
 // generic error handler (from wrap())
 app.use((err, req, res, next) => {

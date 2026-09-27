@@ -19,6 +19,7 @@
   --bg:#F1F5F2; --surface:#FFFFFF; --ink:#12241D; --muted:#586961; --line:#D9E1DC;
   --brand:#0F6B4F; --brand-fg:#FFFFFF; --focus:#0F6B4F;
   --red:#BF3220; --amber:#95600A; --green:#1B7757; --gold:#95600A;
+  --red-soft:#F8E6E1; --amber-soft:#F7EBD3; --green-soft:#E1EEE7;
   --hero-red:#BF3220; --hero-red-fg:#FFFFFF;
   --hero-amber:#F2B632; --hero-amber-fg:#231A00;
   --hero-green:#0F6B4F; --hero-green-fg:#FFFFFF;
@@ -32,6 +33,7 @@
     --bg:#0C1512; --surface:#152119; --ink:#E7F0EA; --muted:#9DB2A7; --line:#25372D;
     --brand:#2FA37A; --brand-fg:#062017; --focus:#5CCB9D;
     --red:#FF8A76; --amber:#F2C14E; --green:#5CCB9D; --gold:#F2C14E;
+    --red-soft:#3A1F19; --amber-soft:#3A310F; --green-soft:#173229;
     --hero-red:#8E2314; --hero-amber:#F2C14E; --hero-green:#11624A; --hero-none:#1B2C23; --hero-none-fg:#E7F0EA;
     --shadow:none;
   }
@@ -40,6 +42,7 @@
   --bg:#0C1512; --surface:#152119; --ink:#E7F0EA; --muted:#9DB2A7; --line:#25372D;
   --brand:#2FA37A; --brand-fg:#062017; --focus:#5CCB9D;
   --red:#FF8A76; --amber:#F2C14E; --green:#5CCB9D; --gold:#F2C14E;
+  --red-soft:#3A1F19; --amber-soft:#3A310F; --green-soft:#173229;
   --hero-red:#8E2314; --hero-amber:#F2C14E; --hero-green:#11624A; --hero-none:#1B2C23; --hero-none-fg:#E7F0EA;
   --shadow:none;
 }
@@ -62,6 +65,9 @@ h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1;letter-spacing:-.02
 .btn.danger.armed{background:var(--red);border-color:var(--red);color:#fff}
 .btn[disabled]{opacity:.55;cursor:not-allowed}
 .btn.small{min-height:36px;padding:0 12px;font-size:15px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--surface);border-color:var(--line);color:var(--ink)}
+input[type="date"],input[type="checkbox"],input[type="radio"]{accent-color:var(--brand)}
 
 .lock{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px}
 .lock-card{width:min(440px,100%)}
@@ -69,6 +75,13 @@ h1,h2,h3{font-family:var(--display);margin:0;line-height:1.1;letter-spacing:-.02
 .lock p.lede{color:var(--muted);margin:0 0 24px;font-size:17px}
 .lock-tagline{color:var(--muted);margin:0 0 16px;font-size:15px;font-weight:600}
 .field{display:block;margin-bottom:16px}
+.field-section-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--brand);margin:22px 0 8px}
+.field-section-label:first-child{margin-top:2px}
+.acct-profile{display:flex;align-items:center;gap:14px;padding:6px 0 18px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+.acct-avatar{width:48px;height:48px;border-radius:50%;background:var(--brand);color:var(--brand-fg);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:1.1rem;flex:none}
+.acct-profile-text{display:flex;flex-direction:column;min-width:0}
+.acct-profile-name{font-family:var(--display);font-weight:700;font-size:1.15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-profile-email{color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .field>span{display:block;font-weight:600;font-size:15px;margin-bottom:6px}
 .field small{display:block;color:var(--muted);font-size:14px;margin-top:5px}
 .input{width:100%;min-height:46px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
@@ -106,10 +119,11 @@ main{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 64px}
 .life-alert li button{background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .life-alert li .when{color:var(--muted);font-size:14px;white-space:nowrap}
 .nudge{border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 18px;background:var(--surface)}
-.nudge-list{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
-.nudge-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;color:inherit;cursor:pointer}
-.nudge-item:hover{border-color:var(--muted)}
-.nudge-item .box{width:18px;height:18px;border-radius:5px;border:2px solid var(--muted);flex:0 0 auto}
+.nudge-list{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+.nudge-item{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;color:inherit;cursor:pointer}
+.nudge-item:hover{border-color:var(--brand);background:var(--surface)}
+.nudge-item .ic{width:32px;height:32px;border-radius:9px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto}
+.nudge-item .lbl{font-size:14px;font-weight:600;line-height:1.25}
 .nudge p{margin:0 0 10px;font-size:15px}
 .nudge .cta{display:flex;gap:10px;flex-wrap:wrap}
 .announce-btn{position:relative}
@@ -136,10 +150,10 @@ main{max-width:1040px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 64px}
 .list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .row{width:100%;display:grid;grid-template-columns:92px 1fr auto;align-items:center;gap:14px;text-align:left;padding:14px 16px 14px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
 .row:hover{border-color:var(--muted)}
-.count{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:64px;border-radius:10px;border:2px solid currentColor;padding:4px 6px;text-align:center}
+.count{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:64px;border-radius:12px;border:1px solid currentColor;padding:4px 6px;text-align:center}
 .count b{font-family:var(--display);font-weight:800;font-size:2rem;line-height:1;letter-spacing:-.03em}
 .count small{font-size:13px;font-weight:600;line-height:1.2;margin-top:3px}
-.count.red{color:var(--red)} .count.amber{color:var(--amber)} .count.green{color:var(--green)} .count.none{color:var(--muted);border-style:dashed}
+.count.red{color:var(--red);background:var(--red-soft)} .count.amber{color:var(--amber);background:var(--amber-soft)} .count.green{color:var(--green);background:var(--green-soft)} .count.none{color:var(--muted);border-style:dashed}
 .info{min-width:0}
 .info .t{display:block;font-family:var(--display);font-weight:700;font-size:1.2rem;letter-spacing:-.015em;overflow-wrap:anywhere}
 .info .s{display:block;color:var(--muted);font-size:15px;margin-top:2px}
@@ -331,10 +345,10 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     <div class="right">
       <button id="announceBtn" class="btn announce-btn" type="button" aria-label="Announcements"><span aria-hidden="true">🔔</span><span id="announceBadge" class="announce-badge" hidden>0</span></button>
       <button id="adminBtn" class="btn" type="button" hidden>Admin</button>
-      <button id="familyBtn" class="btn" type="button" data-i18n="family_btn">Family</button>
-      <button id="acctBtn" class="btn" type="button" data-i18n="acct_btn">Account</button>
+      <button id="familyBtn" class="btn ghost" type="button" data-i18n="family_btn">Family</button>
+      <button id="acctBtn" class="btn ghost" type="button" data-i18n="acct_btn">Account</button>
       <button id="addBtn" class="btn primary" type="button" data-i18n="add_btn">Add document</button>
-      <button id="lockBtn" class="btn" type="button" data-i18n="lock_btn">Sign out</button>
+      <button id="lockBtn" class="btn ghost" type="button" data-i18n="lock_btn">Sign out</button>
     </div>
   </header>
   <button type="button" id="sanyBtn" aria-label="Sany" style="position:fixed;right:18px;bottom:18px;z-index:40;border-radius:999px;padding:12px 20px;border-color:var(--brand);background:var(--brand);color:var(--brand-fg);font-weight:700;box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer">💬 Sany</button>
@@ -393,10 +407,12 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <div class="dh"><h2 id="formTitle">Add document</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
   <form id="form" novalidate>
     <div class="db">
+      <div class="field-section-label" data-i18n="sec_basics">Type &amp; name</div>
       <div class="g2">
         <label class="field"><span data-i18n="field_type">Type</span><select id="f-type" class="input"></select></label>
         <label class="field"><span data-i18n="field_name">Name</span><input id="f-title" class="input" maxlength="80" placeholder="e.g. My passport" data-i18n-ph="field_name_ph"></label>
       </div>
+      <div class="field-section-label" data-i18n="sec_details">Details</div>
       <div class="g2">
         <label class="field"><span data-i18n="field_family">Family member</span><select id="f-profile" class="input"></select></label>
         <label class="field"><span data-i18n="field_belongs">Belongs to</span><input id="f-holder" class="input" maxlength="60" placeholder="Me, Shop, Father…" data-i18n-ph="field_belongs_ph"></label>
@@ -405,6 +421,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <label class="field"><span data-i18n="field_category">Category</span><input id="f-category" class="input" list="categoryList" maxlength="40" data-i18n-ph="field_category_ph"><datalist id="categoryList"></datalist></label>
         <label class="field"><span data-i18n="field_docnum">Document number</span><input id="f-number" class="input" maxlength="60" autocomplete="off"></label>
       </div>
+      <div class="field-section-label" id="datesSectionLabel" data-i18n="sec_dates">Dates</div>
       <div class="g2" id="dateRow">
         <label class="field"><span data-i18n="field_issue">Issue date</span><input id="f-issue" class="input" type="date"></label>
         <label class="field"><span data-i18n="field_expiry">Expiry date</span><input id="f-expiry" class="input" type="date"><small data-i18n="field_expiry_hint">Leave empty if it never expires.</small></label>
@@ -424,6 +441,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <div class="chips" id="milestoneChips"></div>
         <small data-i18n="field_reminders_hint">Pick as many as you like — each one emails you once, at that many days before expiry.</small>
       </div>
+      <div class="field-section-label" data-i18n="sec_notes_files">Notes &amp; files</div>
       <label class="field"><span data-i18n="field_notes">Notes</span><textarea id="f-notes" class="input" maxlength="1500" placeholder="Where the original is kept, renewal office, policy contact…" data-i18n-ph="field_notes_ph"></textarea></label>
       <div class="field" id="filesField">
         <span data-i18n="field_file">Photo or PDF scan</span>
@@ -453,6 +471,14 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <div class="dh"><h2 id="acctTitle" data-i18n="acct_title">Your account</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
   <form id="acctForm">
     <div class="db">
+      <div class="acct-profile" id="acctProfileHeader">
+        <span class="acct-avatar" id="acctAvatarInitials" aria-hidden="true"></span>
+        <span class="acct-profile-text">
+          <span class="acct-profile-name" id="acctProfileName"></span>
+          <span class="acct-profile-email" id="acctProfileEmail"></span>
+        </span>
+      </div>
+      <div class="field-section-label" data-i18n="sec_profile">Profile</div>
       <div class="field">
         <span data-i18n="acct_lang_label">Language</span>
         <div class="cta" style="margin-top:6px"><button type="button" class="btn small" id="acctLangBtn"></button></div>
@@ -461,6 +487,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
       <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
       <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
       <p id="acctTrust" class="msg info" hidden></p>
+      <div class="field-section-label" data-i18n="sec_security">Security</div>
       <div class="field" id="pinSection">
         <span data-i18n="applock_title">App Lock (PIN)</span>
         <p id="pinStatus" class="msg info" style="margin:6px 0"></p>
@@ -480,6 +507,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
           <button type="button" class="btn small danger" id="pinDisableBtn" hidden data-i18n="pin_disable_btn">Turn off PIN lock</button>
         </div>
       </div>
+      <div class="field-section-label" data-i18n="sec_notifications">Notifications</div>
       <div class="field">
         <span data-i18n="acct_notify_label">Push notifications</span>
         <p class="msg info" style="margin:6px 0" data-i18n="acct_notify_lede">Get admin announcements as a notification on this device, even when the app is closed.</p>
@@ -487,6 +515,7 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <button type="button" class="btn small" id="userNotifyBtn" data-i18n="acct_notify_btn">Enable notifications</button>
         <p id="userNotifyMsg" class="msg" role="alert"></p>
       </div>
+      <div class="field-section-label" data-i18n="sec_more">More</div>
       <div class="field">
         <span data-i18n="intro_replay_title">Guided tour</span>
         <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
@@ -805,6 +834,8 @@ var STR = {
     btn_delete_confirm:'Tap again to delete', btn_view:'View', btn_open_file:'Open file',
     share_whatsapp:'Share via WhatsApp',
     form_title_add:'Add document', form_title_edit:'Edit document',
+    sec_basics:'Type & name', sec_details:'Details', sec_dates:'Dates', sec_reminders:'Reminders', sec_notes_files:'Notes & files',
+    sec_profile:'Profile', sec_security:'Security', sec_notifications:'Notifications', sec_more:'More',
     field_type:'Type', field_name:'Name', field_name_ph:'e.g. My passport',
     field_belongs:'Belongs to', field_belongs_ph:'Me, Shop, Father…', field_docnum:'Document number',
     field_issue:'Issue date', field_expiry:'Expiry date', field_expiry_hint:'Leave empty if it never expires.',
@@ -938,6 +969,8 @@ var STR = {
     btn_delete_confirm:'মুছে ফেলতে আবার চাপুন', btn_view:'দেখুন', btn_open_file:'ফাইল খুলুন',
     share_whatsapp:'হোয়াটসঅ্যাপে শেয়ার করুন',
     form_title_add:'ডকুমেন্ট যোগ করুন', form_title_edit:'ডকুমেন্ট সম্পাদনা করুন',
+    sec_basics:'ধরন ও নাম', sec_details:'বিস্তারিত', sec_dates:'তারিখ', sec_reminders:'রিমাইন্ডার', sec_notes_files:'নোট ও ফাইল',
+    sec_profile:'প্রোফাইল', sec_security:'নিরাপত্তা', sec_notifications:'নোটিফিকেশন', sec_more:'আরও',
     field_type:'ধরন', field_name:'নাম', field_name_ph:'যেমন: আমার পাসপোর্ট',
     field_belongs:'কার নামে', field_belongs_ph:'আমি, দোকান, বাবা…', field_docnum:'ডকুমেন্ট নম্বর',
     field_issue:'ইস্যুর তারিখ', field_expiry:'মেয়াদ শেষের তারিখ', field_expiry_hint:'কখনো মেয়াদ শেষ না হলে খালি রাখুন।',
@@ -1937,6 +1970,10 @@ $('#userNotifyBtn').addEventListener('click',function(){
 $('#acctBtn').addEventListener('click',function(){
   $('#ac-name').value=user.name||'';$('#ac-email').value=user.email||'';$('#ac-phone').value=user.phone||'';
   $('#acctMsg').textContent='';
+  var initials=(user.name||'?').trim().split(/\s+/).slice(0,2).map(function(w){return w.charAt(0).toUpperCase();}).join('')||'?';
+  $('#acctAvatarInitials').textContent=initials;
+  $('#acctProfileName').textContent=user.name||'';
+  $('#acctProfileEmail').textContent=user.email||'';
   var trust=$('#acctTrust'),txt=lastSignInText();
   trust.hidden=!txt;trust.textContent=txt||'';
   refreshPinUI();
@@ -2090,7 +2127,7 @@ function renderNudge(){
   el.hidden=false;
   var itemsHtml=missing.map(function(k){
     var T=TYPES[k];
-    return '<li><button type="button" class="nudge-item" data-type="'+esc(k)+'"><span class="box" aria-hidden="true"></span>'+esc(typeLabel(T))+'</button></li>';
+    return '<li><button type="button" class="nudge-item" data-type="'+esc(k)+'"><span class="ic" aria-hidden="true">'+T.icon+'</span><span class="lbl">'+esc(typeLabel(T))+'</span></button></li>';
   }).join('');
   el.innerHTML='<p>'+t('nudge_text',{have:have,total:COMMON_TYPES.length})+'</p>'+
     '<ul class="nudge-list">'+itemsHtml+'</ul>'+
@@ -2451,6 +2488,7 @@ renderTypeOptions();
 function applyDateRowVisibility(T){
   var hide=!!T.noExpiry;
   $('#dateRow').hidden=hide;
+  var dsl=$('#datesSectionLabel');if(dsl)dsl.hidden=hide;
   $('#leadWrap').hidden = hide || !$('#f-expiry').value;
   var mw=$('#milestoneWrap');if(mw)mw.hidden = hide || !$('#f-expiry').value;
 }

@@ -507,6 +507,15 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
           <button type="button" class="btn small danger" id="pinDisableBtn" hidden data-i18n="pin_disable_btn">Turn off PIN lock</button>
         </div>
       </div>
+      <div class="field" id="sessionsSection">
+        <span data-i18n="sessions_label">Signed-in devices</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="sessions_lede">These are the devices currently signed in to your account.</p>
+        <ul class="files" id="sessionsList"></ul>
+        <div class="cta" style="margin-top:8px">
+          <button type="button" class="btn small danger" id="signOutOthersBtn" data-i18n="sessions_signout_others_btn">Sign out all other devices</button>
+        </div>
+        <p id="sessionsMsg" class="msg" role="alert"></p>
+      </div>
       <div class="field-section-label" data-i18n="sec_notifications">Notifications</div>
       <div class="field">
         <span data-i18n="acct_notify_label">Push notifications</span>
@@ -514,6 +523,18 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
         <p id="userNotifyStatus" class="msg info"></p>
         <button type="button" class="btn small" id="userNotifyBtn" data-i18n="acct_notify_btn">Enable notifications</button>
         <p id="userNotifyMsg" class="msg" role="alert"></p>
+      </div>
+      <div class="field-section-label" data-i18n="sec_data">Your data</div>
+      <div class="field">
+        <span data-i18n="backup_label">Backup your data</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="backup_lede">Download everything you've stored — documents, subscriptions, and files — as a ZIP file.</p>
+        <button type="button" class="btn small" id="backupBtn" data-i18n="backup_btn">Download all my data</button>
+        <p id="backupMsg" class="msg" role="alert"></p>
+      </div>
+      <div class="field">
+        <span data-i18n="emerg_label">Emergency access</span>
+        <p class="msg info" style="margin:6px 0" data-i18n="emerg_lede">Let a trusted contact request access to your documents if something happens to you. You always approve or deny each request yourself.</p>
+        <button type="button" class="btn small" id="emergManageBtn" data-i18n="emerg_manage_btn">Manage emergency access</button>
       </div>
       <div class="field-section-label" data-i18n="sec_more">More</div>
       <div class="field">
@@ -540,6 +561,35 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
     </div>
     <div class="df"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
   </form>
+</dialog>
+
+<dialog id="emergDlg" aria-labelledby="emergTitle">
+  <div class="dh"><h2 id="emergTitle" data-i18n="emerg_title">Emergency access</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+  <div class="db">
+    <p class="msg info" data-i18n="emerg_dlg_lede">Add one trusted contact who can request access to your documents in an emergency. Every request needs your explicit approval — nothing is ever shared automatically.</p>
+    <div class="field-section-label" data-i18n="emerg_contact_section">Trusted contact</div>
+    <div class="field" id="emergContactViewBox" hidden>
+      <p style="margin:0 0 10px"><strong id="emergContactName"></strong><br><span id="emergContactEmail" class="msg info" style="margin:0"></span></p>
+      <div class="cta">
+        <button type="button" class="btn small" id="emergContactEditBtn" data-i18n="btn_edit">Edit</button>
+        <button type="button" class="btn small danger" id="emergContactRemoveBtn" data-i18n="emerg_remove_contact_btn">Remove contact</button>
+      </div>
+      <p style="margin:12px 0 4px" data-i18n="emerg_share_link_label">Share this link with your trusted contact so they can request access:</p>
+      <div class="numrow"><code id="emergShareLink" style="word-break:break-all"></code><button type="button" class="btn small" id="emergCopyLinkBtn" data-i18n="btn_copy">Copy</button></div>
+    </div>
+    <div class="field" id="emergContactFormBox">
+      <label class="field"><span data-i18n="field_name">Name</span><input id="emerg-c-name" class="input" maxlength="200"></label>
+      <label class="field"><span data-i18n="field_email">Email</span><input id="emerg-c-email" class="input" type="email" maxlength="120"></label>
+      <div class="cta">
+        <button type="button" class="btn small primary" id="emergContactSaveBtn" data-i18n="save">Save</button>
+        <button type="button" class="btn small" id="emergContactCancelBtn" hidden data-i18n="cancel">Cancel</button>
+      </div>
+      <p id="emergContactMsg" class="msg" role="alert"></p>
+    </div>
+    <div class="field-section-label" data-i18n="emerg_requests_section">Access requests</div>
+    <ul class="files" id="emergRequestsList"></ul>
+  </div>
+  <div class="df"><button class="btn" type="button" data-close data-i18n="close_btn">Close</button></div>
 </dialog>
 
 <dialog id="aboutDlg" aria-labelledby="aboutTitle">
@@ -935,7 +985,30 @@ var STR = {
     sany_lede:'Ask a quick question about using Life Documents — how to add a document, set up App Lock, and more.',
     sany_placeholder:'Type your question…', sany_send_btn:'Send',
     sany_greeting:'Hi, I’m Sany! Ask me how to do something in the app — like adding a document, setting up App Lock, or enabling notifications.',
-    sany_fallback:'I don’t have an answer for that yet. Try asking about adding a document, renewing one, subscriptions, App Lock, notifications, or your account — or send a suggestion from Account and the admin will help.'
+    sany_fallback:'I don’t have an answer for that yet. Try asking about adding a document, renewing one, subscriptions, App Lock, notifications, or your account — or send a suggestion from Account and the admin will help.',
+    sec_data:'Your data',
+    backup_label:'Backup your data',
+    backup_lede:'Download everything you\'ve stored — documents, subscriptions, and files — as a ZIP file.',
+    backup_btn:'Download all my data', backup_preparing:'Preparing…',
+    err_could_not_export:'Could not prepare your backup. Try again in a moment.',
+    emerg_label:'Emergency access',
+    emerg_lede:'Let a trusted contact request access to your documents if something happens to you. You always approve or deny each request yourself.',
+    emerg_manage_btn:'Manage emergency access', emerg_title:'Emergency access',
+    emerg_dlg_lede:'Add one trusted contact who can request access to your documents in an emergency. Every request needs your explicit approval — nothing is ever shared automatically.',
+    emerg_contact_section:'Trusted contact', emerg_no_contact:'No trusted contact set yet.',
+    emerg_remove_contact_btn:'Remove contact', emerg_contact_saved:'Trusted contact saved',
+    emerg_contact_removed:'Trusted contact removed', err_enter_contact_name:'Enter a name.', err_enter_contact_email:'Enter a valid email address.',
+    emerg_share_link_label:'Share this link with your trusted contact so they can request access:',
+    emerg_requests_section:'Access requests', emerg_no_requests:'No access requests yet.',
+    emerg_status_pending:'Pending your decision', emerg_status_approved:'Approved', emerg_status_denied:'Denied', emerg_status_revoked:'Revoked',
+    emerg_approve_btn:'Approve', emerg_deny_btn:'Deny', emerg_revoke_btn:'Revoke access',
+    emerg_expires_label:'Access expires', toast_emerg_approved:'Access approved', toast_emerg_denied:'Request denied', toast_emerg_revoked:'Access revoked',
+    sessions_label:'Signed-in devices', sessions_lede:'These are the devices currently signed in to your account.',
+    sessions_signout_btn:'Sign out', sessions_signout_others_btn:'Sign out all other devices', sessions_current_device:'This device',
+    sessions_last_active:'Last active', toast_session_signed_out:'Device signed out', toast_other_sessions_signed_out:'Other devices signed out',
+    err_could_not_load:'Could not load.',
+    notif_empty:'No reminders sent yet for this document.',
+    notif_kind_added:'Document added', notif_kind_renewed:'Renewed', notif_kind_reminder:'Reminder sent', notif_failed_suffix:'(delivery failed)'
   },
   bn: {
     si_lede:'আপনার ভল্টে সাইন ইন করুন।', field_email:'ইমেইল', field_password:'পাসওয়ার্ড',
@@ -1070,7 +1143,30 @@ var STR = {
     sany_lede:'Life Documents ব্যবহার নিয়ে দ্রুত কোনো প্রশ্ন করুন — ডকুমেন্ট যোগ করা, App Lock সেট করা, ইত্যাদি।',
     sany_placeholder:'আপনার প্রশ্ন লিখুন…', sany_send_btn:'পাঠান',
     sany_greeting:'হাই, আমি Sany! অ্যাপে কীভাবে কিছু করবেন জিজ্ঞাসা করুন — যেমন ডকুমেন্ট যোগ করা, App Lock সেট করা, বা নোটিফিকেশন চালু করা।',
-    sany_fallback:'এই বিষয়ে এখনো আমার উত্তর নেই। ডকুমেন্ট যোগ করা, নবায়ন, সাবস্ক্রিপশন, App Lock, নোটিফিকেশন, বা অ্যাকাউন্ট নিয়ে জিজ্ঞাসা করে দেখুন — অথবা Account থেকে একটা suggestion পাঠান, অ্যাডমিন সাহায্য করবেন।'
+    sany_fallback:'এই বিষয়ে এখনো আমার উত্তর নেই। ডকুমেন্ট যোগ করা, নবায়ন, সাবস্ক্রিপশন, App Lock, নোটিফিকেশন, বা অ্যাকাউন্ট নিয়ে জিজ্ঞাসা করে দেখুন — অথবা Account থেকে একটা suggestion পাঠান, অ্যাডমিন সাহায্য করবেন।',
+    sec_data:'আপনার তথ্য',
+    backup_label:'আপনার তথ্য ব্যাকআপ করুন',
+    backup_lede:'আপনার সংরক্ষিত সবকিছু — ডকুমেন্ট, সাবস্ক্রিপশন ও ফাইল — একটি ZIP ফাইল হিসেবে ডাউনলোড করুন।',
+    backup_btn:'আমার সব তথ্য ডাউনলোড করুন', backup_preparing:'প্রস্তুত হচ্ছে…',
+    err_could_not_export:'আপনার ব্যাকআপ প্রস্তুত করা যায়নি। একটু পর আবার চেষ্টা করুন।',
+    emerg_label:'জরুরি অ্যাক্সেস',
+    emerg_lede:'আপনার কিছু হলে একজন বিশ্বস্ত পরিচিতি আপনার ডকুমেন্ট অ্যাক্সেসের অনুরোধ করতে পারবেন। প্রতিটি অনুরোধ সবসময় আপনি নিজে অনুমোদন বা প্রত্যাখ্যান করবেন।',
+    emerg_manage_btn:'জরুরি অ্যাক্সেস পরিচালনা করুন', emerg_title:'জরুরি অ্যাক্সেস',
+    emerg_dlg_lede:'জরুরি অবস্থায় আপনার ডকুমেন্ট অ্যাক্সেসের অনুরোধ করতে পারেন এমন একজন বিশ্বস্ত পরিচিতি যোগ করুন। প্রতিটি অনুরোধে আপনার স্পষ্ট অনুমোদন প্রয়োজন — কখনো স্বয়ংক্রিয়ভাবে কিছু শেয়ার হয় না।',
+    emerg_contact_section:'বিশ্বস্ত পরিচিতি', emerg_no_contact:'এখনো কোনো বিশ্বস্ত পরিচিতি সেট করা হয়নি।',
+    emerg_remove_contact_btn:'পরিচিতি সরান', emerg_contact_saved:'বিশ্বস্ত পরিচিতি সংরক্ষিত হয়েছে',
+    emerg_contact_removed:'বিশ্বস্ত পরিচিতি সরানো হয়েছে', err_enter_contact_name:'একটি নাম লিখুন।', err_enter_contact_email:'একটি সঠিক ইমেইল ঠিকানা লিখুন।',
+    emerg_share_link_label:'আপনার বিশ্বস্ত পরিচিতির সাথে এই লিংকটি শেয়ার করুন, যাতে তিনি অ্যাক্সেসের অনুরোধ করতে পারেন:',
+    emerg_requests_section:'অ্যাক্সেস অনুরোধ', emerg_no_requests:'এখনো কোনো অ্যাক্সেস অনুরোধ নেই।',
+    emerg_status_pending:'আপনার সিদ্ধান্তের অপেক্ষায়', emerg_status_approved:'অনুমোদিত', emerg_status_denied:'প্রত্যাখ্যাত', emerg_status_revoked:'বাতিল করা হয়েছে',
+    emerg_approve_btn:'অনুমোদন করুন', emerg_deny_btn:'প্রত্যাখ্যান করুন', emerg_revoke_btn:'অ্যাক্সেস বাতিল করুন',
+    emerg_expires_label:'অ্যাক্সেসের মেয়াদ', toast_emerg_approved:'অ্যাক্সেস অনুমোদিত হয়েছে', toast_emerg_denied:'অনুরোধ প্রত্যাখ্যাত হয়েছে', toast_emerg_revoked:'অ্যাক্সেস বাতিল হয়েছে',
+    sessions_label:'সাইন-ইন করা ডিভাইস', sessions_lede:'এই ডিভাইসগুলোতে বর্তমানে আপনার অ্যাকাউন্টে সাইন ইন করা আছে।',
+    sessions_signout_btn:'সাইন আউট করুন', sessions_signout_others_btn:'অন্য সব ডিভাইস থেকে সাইন আউট করুন', sessions_current_device:'এই ডিভাইস',
+    sessions_last_active:'সর্বশেষ সক্রিয়', toast_session_signed_out:'ডিভাইস সাইন আউট হয়েছে', toast_other_sessions_signed_out:'অন্য ডিভাইসগুলো সাইন আউট হয়েছে',
+    err_could_not_load:'লোড করা যায়নি।',
+    notif_empty:'এই ডকুমেন্টের জন্য এখনো কোনো রিমাইন্ডার পাঠানো হয়নি।',
+    notif_kind_added:'ডকুমেন্ট যোগ করা হয়েছে', notif_kind_renewed:'নবায়ন হয়েছে', notif_kind_reminder:'রিমাইন্ডার পাঠানো হয়েছে', notif_failed_suffix:'(পাঠানো ব্যর্থ হয়েছে)'
   }
 };
 var LANG = localStorage.getItem('ld_lang') === 'bn' ? 'bn' : 'en';
@@ -1154,7 +1250,7 @@ $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
   user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
-  ['formDlg','viewDlg','acctDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
+  ['formDlg','viewDlg','acctDlg','emergDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
   if(resetToken){ pendingResetToken=resetToken; showPanel('panelNewPass'); }
@@ -1979,6 +2075,8 @@ $('#acctBtn').addEventListener('click',function(){
   refreshPinUI();
   $('#userNotifyMsg').textContent='';
   refreshNotifyStatus('userNotifyStatus',userNotifyLabels());
+  $('#backupMsg').textContent='';
+  refreshSessionsUI();
   $('#acctDlg').showModal();
 });
 $('#acctForm').addEventListener('submit',function(e){
@@ -2033,6 +2131,157 @@ $('#pinSaveBtn').addEventListener('click',function(){
     refreshPinUI();
     toast(pinMode==='disable'?t('toast_pin_off'):t('toast_pin_saved'));
   }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){btn.disabled=false;});
+});
+
+/* ---------------- Sessions / security (Account dialog) ---------------- */
+function fmtDT(ts){
+  if(!ts) return '';
+  return new Date(Number(ts)).toLocaleString(LANG==='bn'?'bn-BD':'en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function refreshSessionsUI(){
+  var list=$('#sessionsList');
+  list.innerHTML='<li class="msg info" style="margin:0">'+(LANG==='bn'?'লোড হচ্ছে…':'Loading…')+'</li>';
+  api('/api/me/sessions').then(function(res){
+    var rows=res.sessions||[];
+    if(!rows.length){list.innerHTML='<li class="msg info" style="margin:0">'+t('err_could_not_load')+'</li>';return;}
+    list.innerHTML=rows.map(function(s){
+      var label=s.device||(LANG==='bn'?'অজানা ডিভাইস':'Unknown device');
+      var meta=t('sessions_last_active')+' '+esc(fmtDT(s.last_seen_at||s.created_at));
+      var tag=s.current?' <span style="color:var(--brand);font-weight:700">· '+esc(t('sessions_current_device'))+'</span>':'';
+      return '<li><div class="file-row"><span class="nm">'+esc(label)+tag+'<small>'+meta+'</small></span>'+
+        (s.current?'':'<button class="btn small danger" type="button" data-signout-session="'+esc(s.id)+'">'+t('sessions_signout_btn')+'</button>')+
+        '</div></li>';
+    }).join('');
+    list.querySelectorAll('[data-signout-session]').forEach(function(b){
+      b.addEventListener('click',function(){
+        b.disabled=true;
+        api('/api/me/sessions/'+b.dataset.signoutSession,{method:'DELETE'}).then(function(){
+          toast(t('toast_session_signed_out'));refreshSessionsUI();
+        }).catch(function(e){toast(e.error||t('err_could_not_save'));b.disabled=false;});
+      });
+    });
+  }).catch(function(){list.innerHTML='<li class="msg" role="alert" style="margin:0">'+t('err_could_not_load')+'</li>';});
+}
+$('#signOutOthersBtn').addEventListener('click',function(){
+  var btn=this,msg=$('#sessionsMsg');msg.textContent='';btn.disabled=true;
+  api('/api/me/sessions/revoke-others',{method:'POST'}).then(function(){
+    toast(t('toast_other_sessions_signed_out'));refreshSessionsUI();
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){btn.disabled=false;});
+});
+
+/* ---------------- Personal data backup (Account dialog) ---------------- */
+$('#backupBtn').addEventListener('click',function(){
+  var btn=this,msg=$('#backupMsg');msg.textContent='';
+  var original=btn.textContent;
+  btn.disabled=true;btn.textContent=t('backup_preparing');
+  fetch(API_BASE.replace(/\/$/,'')+'/api/me/export',{headers:{Authorization:'Bearer '+TOKEN}}).then(function(r){
+    if(!r.ok)throw new Error();
+    return r.blob();
+  }).then(function(blob){
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download='life-documents-backup.zip';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},4000);
+  }).catch(function(){msg.textContent=t('err_could_not_export');}).then(function(){btn.disabled=false;btn.textContent=original;});
+});
+
+/* ---------------- Trusted contact & emergency access (Account dialog) ---------------- */
+var emergContactEditing=false;
+function emergRequestFormLink(){return API_BASE.replace(/\/$/,'')+'/emergency/request';}
+function refreshTrustedContactUI(){
+  emergContactEditing=false;
+  api('/api/me/trusted-contact').then(function(res){
+    var c=res.contact;
+    if(c){
+      $('#emergContactViewBox').hidden=false;
+      $('#emergContactFormBox').hidden=true;
+      $('#emergContactName').textContent=c.name;
+      $('#emergContactEmail').textContent=c.email;
+      $('#emergShareLink').textContent=emergRequestFormLink();
+    } else {
+      $('#emergContactViewBox').hidden=true;
+      $('#emergContactFormBox').hidden=false;
+      $('#emerg-c-name').value='';$('#emerg-c-email').value='';
+      $('#emergContactCancelBtn').hidden=true;
+    }
+    $('#emergContactMsg').textContent='';
+  }).catch(function(){});
+}
+$('#emergContactEditBtn').addEventListener('click',function(){
+  api('/api/me/trusted-contact').then(function(res){
+    var c=res.contact||{};
+    $('#emerg-c-name').value=c.name||'';$('#emerg-c-email').value=c.email||'';
+    $('#emergContactViewBox').hidden=true;$('#emergContactFormBox').hidden=false;
+    $('#emergContactCancelBtn').hidden=false;
+  });
+});
+$('#emergContactCancelBtn').addEventListener('click',function(){refreshTrustedContactUI();});
+$('#emergContactSaveBtn').addEventListener('click',function(){
+  var btn=this,msg=$('#emergContactMsg');
+  var name=$('#emerg-c-name').value.trim(),email=$('#emerg-c-email').value.trim();
+  if(!name){msg.textContent=t('err_enter_contact_name');return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){msg.textContent=t('err_enter_contact_email');return;}
+  msg.textContent='';btn.disabled=true;
+  api('/api/me/trusted-contact',{method:'PUT',body:JSON.stringify({name:name,email:email})}).then(function(){
+    toast(t('emerg_contact_saved'));refreshTrustedContactUI();
+  }).catch(function(e){msg.textContent=e.error||t('err_could_not_save');}).then(function(){btn.disabled=false;});
+});
+$('#emergContactRemoveBtn').addEventListener('click',function(){
+  var btn=this;btn.disabled=true;
+  api('/api/me/trusted-contact',{method:'DELETE'}).then(function(){
+    toast(t('emerg_contact_removed'));refreshTrustedContactUI();
+  }).catch(function(e){toast(e.error||t('err_could_not_save'));}).then(function(){btn.disabled=false;});
+});
+$('#emergCopyLinkBtn').addEventListener('click',function(){
+  var link=emergRequestFormLink();
+  try{navigator.clipboard.writeText(link).then(function(){toast(t('toast_link_copied'));},function(){toast(link);});}
+  catch(e){toast(link);}
+});
+function emergStatusLabel(status){
+  return status==='approved'?t('emerg_status_approved'):status==='denied'?t('emerg_status_denied'):status==='revoked'?t('emerg_status_revoked'):t('emerg_status_pending');
+}
+function refreshEmergencyRequestsUI(){
+  var list=$('#emergRequestsList');
+  list.innerHTML='<li class="msg info" style="margin:0">'+(LANG==='bn'?'লোড হচ্ছে…':'Loading…')+'</li>';
+  api('/api/me/emergency-requests').then(function(res){
+    var rows=res.requests||[];
+    if(!rows.length){list.innerHTML='<li class="msg info" style="margin:0">'+t('emerg_no_requests')+'</li>';return;}
+    list.innerHTML=rows.map(function(r){
+      var meta=esc(fmtDT(r.requested_at))+' · '+esc(emergStatusLabel(r.status));
+      if(r.status==='approved'&&r.access_expires_at)meta+=' · '+t('emerg_expires_label')+' '+esc(fmtDT(r.access_expires_at));
+      var actions='';
+      if(r.status==='pending'){
+        actions='<button class="btn small primary" type="button" data-emerg-decide="'+esc(r.id)+'" data-action="approve">'+t('emerg_approve_btn')+'</button> '+
+                '<button class="btn small danger" type="button" data-emerg-decide="'+esc(r.id)+'" data-action="deny">'+t('emerg_deny_btn')+'</button>';
+      } else if(r.status==='approved'){
+        actions='<button class="btn small danger" type="button" data-emerg-revoke="'+esc(r.id)+'">'+t('emerg_revoke_btn')+'</button>';
+      }
+      return '<li><div class="file-row"><span class="nm">'+esc(r.contact_email)+'<small>'+meta+'</small>'+
+        (r.message?'<small>“'+esc(r.message)+'”</small>':'')+'</span>'+
+        (actions?'<span>'+actions+'</span>':'')+'</div></li>';
+    }).join('');
+    list.querySelectorAll('[data-emerg-decide]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var action=b.dataset.action;b.disabled=true;
+        api('/api/me/emergency-requests/'+b.dataset.emergDecide+'/decide',{method:'POST',body:JSON.stringify({action:action})}).then(function(){
+          toast(action==='approve'?t('toast_emerg_approved'):t('toast_emerg_denied'));refreshEmergencyRequestsUI();
+        }).catch(function(e){toast(e.error||t('err_could_not_save'));b.disabled=false;});
+      });
+    });
+    list.querySelectorAll('[data-emerg-revoke]').forEach(function(b){
+      b.addEventListener('click',function(){
+        b.disabled=true;
+        api('/api/me/emergency-requests/'+b.dataset.emergRevoke+'/revoke',{method:'POST'}).then(function(){
+          toast(t('toast_emerg_revoked'));refreshEmergencyRequestsUI();
+        }).catch(function(e){toast(e.error||t('err_could_not_save'));b.disabled=false;});
+      });
+    });
+  }).catch(function(){list.innerHTML='<li class="msg" role="alert" style="margin:0">'+t('err_could_not_load')+'</li>';});
+}
+$('#emergManageBtn').addEventListener('click',function(){
+  refreshTrustedContactUI();
+  refreshEmergencyRequestsUI();
+  $('#emergDlg').showModal();
 });
 
 /* ---------------- main list / hero ---------------- */
@@ -2376,8 +2625,10 @@ function openDetail(id){
       return '<li><span class="nm">'+expiredLine+(h.number?(' · #'+esc(mask(h.number))):'')+archivedLine+'</span></li>';
     }).join('')+'</ul></dd></div>';
   }
+  html+='<div><dt>'+t('sec_reminders')+'</dt><dd id="notifHistoryDD">'+(LANG==='bn'?'লোড হচ্ছে…':'Loading…')+'</dd></div>';
   html+='</dl>';
   $('#viewBody').innerHTML=html;
+  loadNotifHistory(d.id);
 
   var cl=calLink(d);
   $('#viewActions').innerHTML=
@@ -2422,6 +2673,25 @@ function openDetail(id){
     });
   }
   var dlg=$('#viewDlg');if(!dlg.open)dlg.showModal();
+}
+
+function notifKindLabel(kind,success){
+  var label=kind==='added'?t('notif_kind_added'):kind==='renewed'?t('notif_kind_renewed'):t('notif_kind_reminder');
+  return success===false?(label+' '+t('notif_failed_suffix')):label;
+}
+function loadNotifHistory(docId){
+  var dd=$('#notifHistoryDD');if(!dd)return;
+  api('/api/documents/'+docId+'/notifications').then(function(res){
+    dd=$('#notifHistoryDD');if(!dd)return; // dialog may have moved on while this was in flight
+    var rows=res.notifications||[];
+    if(!rows.length){dd.innerHTML='<span class="msg info" style="margin:0">'+t('notif_empty')+'</span>';return;}
+    dd.innerHTML='<ul class="files">'+rows.map(function(n){
+      var when=fmtDT(n.created_at);
+      return '<li><span class="nm">'+esc(notifKindLabel(n.kind,n.success))+(n.detail?(' — '+esc(n.detail)):'')+'<small>'+esc(when)+'</small></span></li>';
+    }).join('')+'</ul>';
+  }).catch(function(){
+    dd=$('#notifHistoryDD');if(dd)dd.innerHTML='<span class="msg" role="alert" style="margin:0">'+t('err_could_not_load')+'</span>';
+  });
 }
 
 var urls=[];
@@ -2975,7 +3245,7 @@ document.addEventListener('click',function(e){
   var c=e.target.closest('[data-close]');
   if(c){var dlg=c.closest('dialog');if(dlg)dlg.close();}
 });
-['formDlg','viewDlg','acctDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){
+['formDlg','viewDlg','acctDlg','emergDlg','adminDlg','backendDlg','profilesDlg','subFormDlg','subViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){
   $('#'+id).addEventListener('click',function(e){if(e.target===this)this.close();});
 });
 

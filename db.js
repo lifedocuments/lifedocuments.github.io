@@ -212,6 +212,62 @@ async function init() {
       created_at BIGINT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_suggestions_created ON suggestions(created_at);
+
+    -- Login sessions: one row per issued JWT, so a user can see where
+    -- they're signed in and revoke a device remotely. A token whose "sid"
+    -- has no matching row here (or is revoked) is rejected by auth(); a
+    -- token minted before this table existed (no "sid" at all) is still
+    -- honored so upgrading this doesn't sign everyone out at once.
+    CREATE TABLE IF NOT EXISTS sessions(
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      device TEXT,
+      created_at BIGINT NOT NULL,
+      last_seen_at BIGINT,
+      revoked_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+    -- A human-readable log of notification emails actually sent (or
+    -- attempted) for a document, so the owner can see for themselves that
+    -- the reminder/confirmation system is really working instead of just
+    -- being told to trust it.
+    CREATE TABLE IF NOT EXISTS notification_log(
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      document_id TEXT,
+      kind TEXT NOT NULL,
+      detail TEXT,
+      success BOOLEAN NOT NULL DEFAULT true,
+      created_at BIGINT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_notification_log_document ON notification_log(document_id);
+    CREATE INDEX IF NOT EXISTS idx_notification_log_user ON notification_log(user_id, created_at);
+
+    -- Emergency access: one trusted contact per account, who can ask to
+    -- view (never edit or delete) the vault if the owner becomes
+    -- unreachable. Every request still needs the owner's explicit
+    -- approval by email or in-app — there is no automatic grant.
+    CREATE TABLE IF NOT EXISTS trusted_contacts(
+      user_id TEXT PRIMARY KEY REFERENCES users(id),
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS emergency_requests(
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      contact_email TEXT NOT NULL,
+      message TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      approve_token TEXT UNIQUE,
+      deny_token TEXT UNIQUE,
+      access_token TEXT UNIQUE,
+      access_expires_at BIGINT,
+      requested_at BIGINT NOT NULL,
+      decided_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS idx_emergency_requests_user ON emergency_requests(user_id);
   `);
 }
 
@@ -293,6 +349,10 @@ module.exports = {
       await client.query('DELETE FROM broadcast_reads WHERE user_id=$1', [id]);
       await client.query('UPDATE broadcasts SET target_user_id=NULL WHERE target_user_id=$1', [id]);
       await client.query('UPDATE broadcasts SET target_user_ids=array_remove(target_user_ids,$1) WHERE $1=ANY(target_user_ids)', [id]);
+      await client.query('DELETE FROM sessions WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM notification_log WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM trusted_contacts WHERE user_id=$1', [id]);
+      await client.query('DELETE FROM emergency_requests WHERE user_id=$1', [id]);
       await client.query('DELETE FROM users WHERE id=$1', [id]);
       await client.query('COMMIT');
     } catch (e) {
@@ -581,6 +641,12 @@ module.exports = {
     const r = await pool.query('SELECT id,document_id,name,mime,size FROM files WHERE user_id=$1', [userId]);
     return r.rows;
   },
+  // Includes the file bytes — used only by the personal data-export ZIP,
+  // never for an ordinary listing.
+  async listFilesByUserWithData(userId) {
+    const r = await pool.query('SELECT id,document_id,name,mime,data FROM files WHERE user_id=$1', [userId]);
+    return r.rows;
+  },
   async listFilesByDocument(docId) {
     const r = await pool.query('SELECT id,document_id,name,mime,size FROM files WHERE document_id=$1', [docId]);
     return r.rows;
@@ -705,5 +771,130 @@ module.exports = {
   async findSuggestionFile(id) {
     const r = await pool.query('SELECT file_name, file_mime, file_data FROM suggestions WHERE id=$1', [id]);
     return r.rows[0] || null;
+  },
+
+  // ---- sessions (login devices) ----
+  async insertSession(s) {
+    await pool.query(
+      `INSERT INTO sessions(id,user_id,device,created_at,last_seen_at) VALUES($1,$2,$3,$4,$4)`,
+      [s.id, s.user_id, s.device || null, s.created_at]
+    );
+  },
+  async findActiveSession(id) {
+    const r = await pool.query('SELECT * FROM sessions WHERE id=$1 AND revoked_at IS NULL', [id]);
+    return r.rows[0] || null;
+  },
+  async touchSessionSeen(id, ts) {
+    await pool.query('UPDATE sessions SET last_seen_at=$2 WHERE id=$1', [id, ts || Date.now()]);
+  },
+  async listSessionsForUser(userId) {
+    const r = await pool.query(
+      `SELECT id, device, created_at, last_seen_at FROM sessions
+       WHERE user_id=$1 AND revoked_at IS NULL ORDER BY last_seen_at DESC NULLS LAST, created_at DESC`,
+      [userId]
+    );
+    return r.rows;
+  },
+  async revokeSession(id, userId) {
+    const r = await pool.query(
+      'UPDATE sessions SET revoked_at=$3 WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL',
+      [id, userId, Date.now()]
+    );
+    return r.rowCount > 0;
+  },
+  async revokeOtherSessions(userId, keepId) {
+    await pool.query(
+      'UPDATE sessions SET revoked_at=$3 WHERE user_id=$1 AND id<>$2 AND revoked_at IS NULL',
+      [userId, keepId, Date.now()]
+    );
+  },
+
+  // ---- notification log (per-document reminder/confirmation history) ----
+  async insertNotificationLog(n) {
+    await pool.query(
+      `INSERT INTO notification_log(id,user_id,document_id,kind,detail,success,created_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [n.id, n.user_id, n.document_id || null, n.kind, n.detail || null, n.success !== false, n.created_at]
+    );
+  },
+  async listNotificationLogForDocument(documentId, userId) {
+    const r = await pool.query(
+      `SELECT kind, detail, success, created_at FROM notification_log
+       WHERE document_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 50`,
+      [documentId, userId]
+    );
+    return r.rows;
+  },
+
+  // ---- trusted contact & emergency access ----
+  async setTrustedContact(userId, name, email) {
+    await pool.query(
+      `INSERT INTO trusted_contacts(user_id,name,email,created_at) VALUES($1,$2,$3,$4)
+       ON CONFLICT (user_id) DO UPDATE SET name=$2, email=$3`,
+      [userId, name, email, Date.now()]
+    );
+  },
+  async findTrustedContact(userId) {
+    const r = await pool.query('SELECT * FROM trusted_contacts WHERE user_id=$1', [userId]);
+    return r.rows[0] || null;
+  },
+  async deleteTrustedContact(userId) {
+    await pool.query('DELETE FROM trusted_contacts WHERE user_id=$1', [userId]);
+  },
+  async findEmergencyRequestById(id, userId) {
+    const r = await pool.query('SELECT * FROM emergency_requests WHERE id=$1 AND user_id=$2', [id, userId]);
+    return r.rows[0] || null;
+  },
+  async findPendingEmergencyRequest(userId) {
+    const r = await pool.query(
+      `SELECT * FROM emergency_requests WHERE user_id=$1 AND status='pending' ORDER BY requested_at DESC LIMIT 1`,
+      [userId]
+    );
+    return r.rows[0] || null;
+  },
+  async insertEmergencyRequest(e) {
+    await pool.query(
+      `INSERT INTO emergency_requests(id,user_id,contact_email,message,status,approve_token,deny_token,requested_at)
+       VALUES($1,$2,$3,$4,'pending',$5,$6,$7)`,
+      [e.id, e.user_id, e.contact_email, e.message || null, e.approve_token, e.deny_token, e.requested_at]
+    );
+  },
+  async findEmergencyRequestByDecideToken(token) {
+    const r = await pool.query(
+      'SELECT * FROM emergency_requests WHERE (approve_token=$1 OR deny_token=$1) AND status=\'pending\'',
+      [token]
+    );
+    return r.rows[0] || null;
+  },
+  async decideEmergencyRequest(id, status, accessToken, accessExpiresAt) {
+    await pool.query(
+      `UPDATE emergency_requests SET status=$2, access_token=$3, access_expires_at=$4, decided_at=$5,
+         approve_token=NULL, deny_token=NULL
+       WHERE id=$1`,
+      [id, status, accessToken || null, accessExpiresAt || null, Date.now()]
+    );
+  },
+  async findEmergencyRequestByAccessToken(token) {
+    const r = await pool.query(
+      `SELECT * FROM emergency_requests WHERE access_token=$1 AND status='approved'`,
+      [token]
+    );
+    return r.rows[0] || null;
+  },
+  async listEmergencyRequestsForUser(userId) {
+    const r = await pool.query(
+      `SELECT id, contact_email, message, status, access_expires_at, requested_at, decided_at
+       FROM emergency_requests WHERE user_id=$1 ORDER BY requested_at DESC LIMIT 20`,
+      [userId]
+    );
+    return r.rows;
+  },
+  async revokeEmergencyAccess(id, userId) {
+    const r = await pool.query(
+      `UPDATE emergency_requests SET status='revoked', decided_at=$3
+       WHERE id=$1 AND user_id=$2 AND status='approved'`,
+      [id, userId, Date.now()]
+    );
+    return r.rowCount > 0;
   }
 };

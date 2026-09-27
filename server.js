@@ -8,9 +8,12 @@ const { v4: uuid } = require('uuid');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 const webpush = require('web-push');
+const archiver = require('archiver');
+const crypto = require('crypto');
 const db = require('./db');
 
 const app = express();
+app.set('trust proxy', true); // Render sits behind a proxy — needed so req.protocol/host are correct for the emergency-access links below
 app.use(cors());
 
 /* ---------------- mail ---------------- */
@@ -175,6 +178,12 @@ function cleanMilestones(arr, fallback) {
   }
   return out;
 }
+// Escapes one CSV cell (quotes it only if it contains a comma, quote, or
+// newline) — shared by the personal data-export ZIP and CSV output.
+function csvCell(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
 // Turns a User-Agent header into a short, friendly label like "Chrome on
 // Windows" for the account page's "last signed in" trust line. Best-effort
 // only — an unrecognized UA just falls back to generic labels.
@@ -195,16 +204,31 @@ function simplifyDevice(ua) {
   else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
   return browser + ' on ' + os;
 }
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const h = req.headers.authorization || '';
   const token = h.indexOf('Bearer ') === 0 ? h.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Not signed in.' });
+  let payload;
   try {
-    req.userId = jwt.verify(token, process.env.JWT_SECRET).uid;
-    next();
+    payload = jwt.verify(token, process.env.JWT_SECRET);
   } catch (e) {
-    res.status(401).json({ error: 'Session expired. Sign in again.' });
+    return res.status(401).json({ error: 'Session expired. Sign in again.' });
   }
+  req.userId = payload.uid;
+  // Sessions let a signed-in user see their devices and revoke one
+  // remotely (Account > Security). A token minted before sessions existed
+  // has no "sid" and is still honored with no revocation check, so
+  // shipping this never forces already-signed-in users to log back in.
+  if (payload.sid) {
+    try {
+      const session = await db.findActiveSession(payload.sid);
+      if (!session) return res.status(401).json({ error: 'This device was signed out. Sign in again.' });
+      req.sessionId = payload.sid;
+      const stale = !session.last_seen_at || (Date.now() - Number(session.last_seen_at)) > 5 * 60 * 1000;
+      if (stale) db.touchSessionSeen(payload.sid).catch(() => {});
+    } catch (e) { return next(e); }
+  }
+  next();
 }
 function isAdminEmail(email) {
   const admin = (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
@@ -241,7 +265,9 @@ app.post('/api/signup', wrap(async (req, res) => {
   // Family Vault: everyone starts with a "Me" profile so documents can be
   // tagged right away without a separate setup step.
   await db.insertProfile({ id: uuid(), user_id: id, name, relation: 'self', created_at: Date.now() }).catch(e => console.error('Could not create default profile for', id, e.message));
-  const token = jwt.sign({ uid: id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  const sid = uuid();
+  await db.insertSession({ id: sid, user_id: id, device: simplifyDevice(req.headers['user-agent']), created_at: Date.now() }).catch(e => console.error('Could not record session for', id, e.message));
+  const token = jwt.sign({ uid: id, sid }, process.env.JWT_SECRET, { expiresIn: '30d' });
   res.json({ token, user: publicUser({ id, name, email: emailNorm, phone, plan: 'free' }) });
 
   const appLink = process.env.FRONTEND_URL || '';
@@ -261,8 +287,11 @@ app.post('/api/login', wrap(async (req, res) => {
   const ok = await bcrypt.compare(password || '', u.password_hash);
   if (!ok) return res.status(401).json({ error: 'Wrong password.' });
   if (u.suspended) return res.status(403).json({ error: 'This account has been suspended. Contact support.' });
-  const token = jwt.sign({ uid: u.id }, process.env.JWT_SECRET, { expiresIn: '30d' });
-  await db.touchLastLogin(u.id, simplifyDevice(req.headers['user-agent'])).catch(e => console.error('Could not record last login for', u.id, e.message));
+  const device = simplifyDevice(req.headers['user-agent']);
+  const sid = uuid();
+  await db.insertSession({ id: sid, user_id: u.id, device, created_at: Date.now() }).catch(e => console.error('Could not record session for', u.id, e.message));
+  const token = jwt.sign({ uid: u.id, sid }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  await db.touchLastLogin(u.id, device).catch(e => console.error('Could not record last login for', u.id, e.message));
   res.json({ token, user: publicUser(u) });
 }));
 
@@ -347,6 +376,83 @@ app.post('/api/me/pin/verify', auth, wrap(async (req, res) => {
 app.post('/api/me/intro-seen', auth, wrap(async (req, res) => {
   await db.updateUser(req.userId, { intro_seen_version: CURRENT_TOUR_VERSION });
   res.json({ ok: true });
+}));
+
+/* ---------------- sessions (Account > Security: signed-in devices) ---------------- */
+app.get('/api/me/sessions', auth, wrap(async (req, res) => {
+  const rows = await db.listSessionsForUser(req.userId);
+  res.json({ sessions: rows.map(s => ({ ...s, current: s.id === req.sessionId })) });
+}));
+app.delete('/api/me/sessions/:id', auth, wrap(async (req, res) => {
+  const ok = await db.revokeSession(req.params.id, req.userId);
+  if (!ok) return res.status(404).json({ error: 'Not found.' });
+  res.json({ ok: true });
+}));
+app.post('/api/me/sessions/revoke-others', auth, wrap(async (req, res) => {
+  if (!req.sessionId) return res.status(400).json({ error: 'Sign in again first, then retry — this device needs a current session to keep.' });
+  await db.revokeOtherSessions(req.userId, req.sessionId);
+  res.json({ ok: true });
+}));
+
+/* ---------------- personal data export (Account > Data & backup) ---------------- */
+// Everything the account owns, in one ZIP: documents.csv and
+// subscriptions.csv (metadata) plus every uploaded file, organized by
+// document — so losing access to the app never means losing the
+// documents themselves.
+app.get('/api/me/export', auth, wrap(async (req, res) => {
+  const u = await db.findUserById(req.userId);
+  if (!u) return res.status(404).json({ error: 'Not found.' });
+  const [docs, subs, files] = await Promise.all([
+    db.listDocumentsByUser(req.userId),
+    db.listSubscriptionsByUser(req.userId),
+    db.listFilesByUserWithData(req.userId)
+  ]);
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="life-documents-backup-' + new Date().toISOString().slice(0, 10) + '.zip"');
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', err => { console.error('Export ZIP failed for', req.userId, err.message); try { res.end(); } catch (e) {} });
+  archive.pipe(res);
+
+  const docHeader = ['Title', 'Type', 'Category', 'Belongs to', 'Document number', 'Issue date', 'Expiry date', 'Notes'];
+  const docLines = [docHeader.join(',')];
+  docs.forEach(d => {
+    docLines.push([
+      csvCell(d.title), csvCell(d.type), csvCell(d.category || ''), csvCell(d.holder || ''),
+      csvCell(d.number || ''), csvCell(d.issue || ''), csvCell(d.expiry || ''), csvCell(d.notes || '')
+    ].join(','));
+  });
+  archive.append(docLines.join('\r\n'), { name: 'documents.csv' });
+
+  const subHeader = ['Name', 'Category', 'Amount', 'Recurrence', 'Next due', 'Notes'];
+  const subLines = [subHeader.join(',')];
+  subs.forEach(s => {
+    subLines.push([
+      csvCell(s.name), csvCell(s.category || ''), csvCell(s.amount || ''),
+      csvCell(s.recurrence || ''), csvCell(s.next_due || ''), csvCell(s.notes || '')
+    ].join(','));
+  });
+  archive.append(subLines.join('\r\n'), { name: 'subscriptions.csv' });
+
+  const byId = {}; docs.forEach(d => { byId[d.id] = d; });
+  const usedNames = {};
+  files.forEach(f => {
+    const d = byId[f.document_id];
+    const folder = (d ? d.title : 'Other').replace(/[\\/:*?"<>|]/g, '_').trim() || 'Document';
+    const baseName = (f.name || 'file').replace(/[\\/:*?"<>|]/g, '_');
+    const key = folder + '/' + baseName;
+    const n = (usedNames[key] = (usedNames[key] || 0) + 1);
+    const finalName = n > 1 ? folder + '/' + baseName.replace(/(\.[^.]*)?$/, m => ' (' + n + ')' + m) : key;
+    archive.append(f.data, { name: 'files/' + finalName });
+  });
+
+  archive.append(
+    'This is a personal data export from Life Documents for ' + (u.name || u.email) + ', generated ' + new Date().toISOString() + '.\r\n' +
+    'documents.csv and subscriptions.csv hold the details you entered; the files/ folder holds every photo or PDF you uploaded, grouped by document.\r\n',
+    { name: 'README.txt' }
+  );
+
+  archive.finalize();
 }));
 
 /* ---------------- profiles (Family Vault) ---------------- */
@@ -725,6 +831,9 @@ app.post('/api/documents', auth, wrap(async (req, res) => {
   res.json({ id });
 
   // Confirmation email — best-effort, never blocks or fails the request.
+  // Logged either way (success or failure) so the owner can see for
+  // themselves, from the document's own "Reminder history", that this
+  // actually went out — instead of just being told to trust it.
   (async () => {
     try {
       const u = await db.findUserById(req.userId);
@@ -734,8 +843,12 @@ app.post('/api/documents', auth, wrap(async (req, res) => {
           (b.expiry ? ('\nExpiry date: ' + b.expiry) : '') +
           '\n\n— Life Documents'
         );
+        await db.insertNotificationLog({ id: uuid(), user_id: req.userId, document_id: id, kind: 'added', detail: b.title, success: true, created_at: Date.now() }).catch(() => {});
       }
-    } catch (e) { console.error('Add-document email failed:', e.message); }
+    } catch (e) {
+      console.error('Add-document email failed:', e.message);
+      await db.insertNotificationLog({ id: uuid(), user_id: req.userId, document_id: id, kind: 'added', detail: b.title, success: false, created_at: Date.now() }).catch(() => {});
+    }
   })();
 }));
 
@@ -768,7 +881,7 @@ app.put('/api/documents/:id', auth, wrap(async (req, res) => {
   res.json({ ok: true });
 
   // Confirmation email for a renewal — best-effort, never blocks or fails
-  // the request.
+  // the request. Logged either way for the document's "Reminder history".
   if (renewed) {
     (async () => {
       try {
@@ -778,8 +891,12 @@ app.put('/api/documents/:id', auth, wrap(async (req, res) => {
             'Hi ' + u.name + ',\n\n"' + patch.title + '" has been renewed.\nNew expiry date: ' + patch.expiry +
             '\n\n— Life Documents'
           );
+          await db.insertNotificationLog({ id: uuid(), user_id: req.userId, document_id: d.id, kind: 'renewed', detail: patch.title + ' — new expiry ' + patch.expiry, success: true, created_at: Date.now() }).catch(() => {});
         }
-      } catch (e) { console.error('Renew email failed:', e.message); }
+      } catch (e) {
+        console.error('Renew email failed:', e.message);
+        await db.insertNotificationLog({ id: uuid(), user_id: req.userId, document_id: d.id, kind: 'renewed', detail: patch.title, success: false, created_at: Date.now() }).catch(() => {});
+      }
     })();
   }
 }));
@@ -792,6 +909,16 @@ app.delete('/api/documents/:id', auth, wrap(async (req, res) => {
   await db.deleteBundleItemsByDocument(d.id);
   await db.deleteDocument(d.id);
   res.json({ ok: true });
+}));
+
+// Reminder history: every confirmation/reminder email actually sent (or
+// attempted) for this document, newest first — lets the owner verify for
+// themselves that the system is really watching this document.
+app.get('/api/documents/:id/notifications', auth, wrap(async (req, res) => {
+  const d = await db.findDocument(req.params.id, req.userId);
+  if (!d) return res.status(404).json({ error: 'Not found.' });
+  const rows = await db.listNotificationLogForDocument(d.id, req.userId);
+  res.json({ notifications: rows });
 }));
 
 /* ---------------- subscriptions & recurring payments ---------------- */
@@ -1036,6 +1163,296 @@ app.delete('/api/files/:id', auth, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+/* ---------------- trusted contact + emergency access ---------------- */
+// Design principle (explicit, confirmed with the account owner's own choice):
+// access to someone's documents is NEVER granted automatically, on a timeout,
+// or silently. A trusted contact can only *request* access; the account
+// owner must take a deliberate, positive action (open the email, click
+// Approve, then confirm on a page) before anything becomes visible. There is
+// no code path that grants access without that click.
+
+function genToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// This server's own public base URL, used to build the /emergency/... links
+// (those pages are served directly by this API, not by the SPA frontend —
+// unlike the password-reset link, which points at FRONTEND_URL).
+function apiBaseUrl(req) {
+  return process.env.API_BASE_URL || (req.protocol + '://' + req.get('host'));
+}
+
+// Minimal standalone page template for the public, non-SPA pages used by the
+// emergency-access flow (request form, approve/deny confirmation, read-only
+// viewer). Deliberately simple/dependency-free since these are served
+// straight from the API rather than from the main app.
+function simplePage(title, bodyHtml) {
+  return '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+    '<title>' + escHtml(title) + ' — Life Documents</title>\n' +
+    '<style>\n' +
+    ':root{--brand:#0f766e;--brand-fg:#fff;--ink:#1b2430;--muted:#5b6b7a;--line:#e2e8ef;--bg:#f6f8fa;--surface:#fff;--red:#b3261e;--green:#1a7f4e}\n' +
+    '*{box-sizing:border-box}\n' +
+    "body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'Source Sans 3',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:32px 16px;min-height:100vh}\n" +
+    '.card{max-width:480px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 24px;box-shadow:0 1px 3px rgba(20,30,40,.06)}\n' +
+    'h1{font-size:1.3rem;margin:0 0 6px;color:var(--brand)}\n' +
+    'p{color:var(--muted);margin:0 0 16px}\n' +
+    'label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}\n' +
+    'input[type=email],input[type=text],textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;color:inherit;background:var(--bg)}\n' +
+    'textarea{min-height:80px;resize:vertical}\n' +
+    'button,.btn{display:inline-block;margin-top:18px;padding:10px 18px;border:none;border-radius:10px;background:var(--brand);color:var(--brand-fg);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}\n' +
+    'button.deny{background:var(--red)}\n' +
+    'button:disabled{opacity:.6;cursor:default}\n' +
+    '.msg{margin-top:16px;font-weight:600}\n' +
+    '.msg.ok{color:var(--green)} .msg.err{color:var(--red)}\n' +
+    'ul.doclist{list-style:none;margin:0;padding:0}\n' +
+    'ul.doclist li{padding:12px 0;border-bottom:1px solid var(--line)}\n' +
+    'ul.doclist li:last-child{border-bottom:none}\n' +
+    '.doc-title{font-weight:700}\n' +
+    '.doc-meta{color:var(--muted);font-size:14px}\n' +
+    'a.file{color:var(--brand);text-decoration:none;font-size:14px}\n' +
+    'a.file:hover{text-decoration:underline}\n' +
+    '</style>\n</head>\n<body>\n  <div class="card">' + bodyHtml + '</div>\n</body>\n</html>';
+}
+
+// Shared by both the in-app decide route and the public email-link decide
+// route. Never called except in direct response to the owner's own
+// deliberate action.
+async function finalizeEmergencyDecision(reqRow, action, baseUrl) {
+  const owner = await db.findUserById(reqRow.user_id);
+  if (action === 'approve') {
+    const accessToken = genToken();
+    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+    await db.decideEmergencyRequest(reqRow.id, 'approved', accessToken, expiresAt);
+    if (baseUrl) {
+      const viewLink = baseUrl + '/emergency/view/' + accessToken;
+      sendMail(reqRow.contact_email, 'Emergency access approved — Life Documents',
+        (owner ? owner.name + ' has' : 'The account owner has') + ' approved your request for emergency access to their Life Documents.\n\n' +
+        'View their documents here (this link works for 7 days):\n' + viewLink + '\n\n' +
+        'If you did not request this, you can ignore this email.'
+      ).catch(e => console.error('Emergency-access approval email failed for', reqRow.contact_email, e.message));
+    }
+  } else {
+    await db.decideEmergencyRequest(reqRow.id, 'denied', null, null);
+    sendMail(reqRow.contact_email, 'Emergency access request declined — Life Documents',
+      'Your request for emergency access to a Life Documents account was not approved by the account owner.'
+    ).catch(e => console.error('Emergency-access denial email failed for', reqRow.contact_email, e.message));
+  }
+}
+
+// --- Trusted contact management (in-app, authenticated) ---
+app.get('/api/me/trusted-contact', auth, wrap(async (req, res) => {
+  const c = await db.findTrustedContact(req.userId);
+  res.json({ contact: c ? { name: c.name, email: c.email } : null });
+}));
+
+app.put('/api/me/trusted-contact', auth, wrap(async (req, res) => {
+  const name = String((req.body && req.body.name) || '').trim().slice(0, 200);
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  if (!name) return res.status(400).json({ error: 'Enter a name.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  await db.setTrustedContact(req.userId, name, email);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/me/trusted-contact', auth, wrap(async (req, res) => {
+  await db.deleteTrustedContact(req.userId);
+  res.json({ ok: true });
+}));
+
+// --- Emergency-request management (in-app, authenticated) ---
+app.get('/api/me/emergency-requests', auth, wrap(async (req, res) => {
+  const rows = await db.listEmergencyRequestsForUser(req.userId);
+  res.json({ requests: rows });
+}));
+
+app.post('/api/me/emergency-requests/:id/decide', auth, wrap(async (req, res) => {
+  const action = req.body && req.body.action;
+  if (action !== 'approve' && action !== 'deny') return res.status(400).json({ error: 'Invalid action.' });
+  const reqRow = await db.findEmergencyRequestById(req.params.id, req.userId);
+  if (!reqRow) return res.status(404).json({ error: 'Not found.' });
+  if (reqRow.status !== 'pending') return res.status(400).json({ error: 'This request has already been decided.' });
+  await finalizeEmergencyDecision(reqRow, action, apiBaseUrl(req));
+  res.json({ ok: true });
+}));
+
+app.post('/api/me/emergency-requests/:id/revoke', auth, wrap(async (req, res) => {
+  const ok = await db.revokeEmergencyAccess(req.params.id, req.userId);
+  if (!ok) return res.status(404).json({ error: 'Not found or not currently approved.' });
+  res.json({ ok: true });
+}));
+
+// --- Public emergency-access flow (no login — the requester isn't the account owner) ---
+
+app.get('/emergency/request', (req, res) => {
+  const body =
+    '<h1>Request emergency access</h1>' +
+    '<p>If someone has added you as their trusted contact in Life Documents, you can use this form to ask for access to their documents. The account owner must approve your request before you can see anything.</p>' +
+    '<form id="f">' +
+    '<label for="ownerEmail">Account owner\'s email</label>' +
+    '<input type="email" id="ownerEmail" required>' +
+    '<label for="requesterName">Your name</label>' +
+    '<input type="text" id="requesterName" required>' +
+    '<label for="requesterEmail">Your email (must match what they registered for you)</label>' +
+    '<input type="email" id="requesterEmail" required>' +
+    '<label for="message">Message (optional)</label>' +
+    '<textarea id="message" maxlength="1000"></textarea>' +
+    '<button type="submit" id="go">Send request</button>' +
+    '</form>' +
+    '<div id="result"></div>' +
+    '<script>' +
+    'document.getElementById("f").addEventListener("submit", function (ev) {' +
+    'ev.preventDefault();' +
+    'var btn = document.getElementById("go"); btn.disabled = true; btn.textContent = "Sending…";' +
+    'fetch("/api/emergency-access/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({' +
+    'ownerEmail: document.getElementById("ownerEmail").value,' +
+    'requesterName: document.getElementById("requesterName").value,' +
+    'requesterEmail: document.getElementById("requesterEmail").value,' +
+    'message: document.getElementById("message").value' +
+    '}) })' +
+    '.then(function (r) { return r.json(); })' +
+    '.then(function (d) {' +
+    'document.getElementById("f").hidden = true;' +
+    'document.getElementById("result").innerHTML = "<p class=\\"msg ok\\">" + (d.message || "Request sent.") + "</p>";' +
+    '})' +
+    '.catch(function () {' +
+    'btn.disabled = false; btn.textContent = "Send request";' +
+    'document.getElementById("result").innerHTML = "<p class=\\"msg err\\">Network error — please try again.</p>";' +
+    '});' +
+    '});' +
+    '</script>';
+  res.send(simplePage('Request emergency access', body));
+});
+
+app.post('/api/emergency-access/request', wrap(async (req, res) => {
+  const ownerEmail = String((req.body && req.body.ownerEmail) || '').trim().toLowerCase();
+  const requesterName = String((req.body && req.body.requesterName) || '').trim().slice(0, 200);
+  const requesterEmail = String((req.body && req.body.requesterEmail) || '').trim().toLowerCase();
+  const message = String((req.body && req.body.message) || '').trim().slice(0, 1000);
+  // Always send back the same generic response, whether or not the owner
+  // exists, has a trusted contact configured, or the requester's email
+  // matches — so this endpoint can't be used to probe which emails have
+  // accounts or a configured contact.
+  const generic = { ok: true, message: 'If those details match our records, the account owner has been notified and must approve your request before you can access anything.' };
+  if (!ownerEmail || !requesterEmail || !requesterName) return res.json(generic);
+  const baseUrl = apiBaseUrl(req);
+  (async () => {
+    try {
+      const owner = await db.findUserByEmail(ownerEmail);
+      if (!owner) return;
+      const contact = await db.findTrustedContact(owner.id);
+      if (!contact || contact.email.toLowerCase() !== requesterEmail) return;
+      let reqRow = await db.findPendingEmergencyRequest(owner.id);
+      if (!reqRow) {
+        reqRow = {
+          id: uuid(), user_id: owner.id, contact_email: requesterEmail,
+          message: message || null, approve_token: genToken(), deny_token: genToken(),
+          requested_at: Date.now()
+        };
+        await db.insertEmergencyRequest(reqRow);
+      }
+      const approveLink = baseUrl + '/emergency/decide/' + reqRow.approve_token;
+      const denyLink = baseUrl + '/emergency/decide/' + reqRow.deny_token;
+      await sendMail(owner.email, 'Emergency access request — Life Documents',
+        (requesterName || 'Someone') + ' (' + requesterEmail + '), your trusted contact, has requested emergency access to your Life Documents.\n' +
+        (message ? '\nTheir message:\n' + message + '\n' : '') +
+        '\nApprove:\n' + approveLink + '\n\nDeny:\n' + denyLink + '\n\n' +
+        'Nothing will be shared unless you approve this request.'
+      );
+    } catch (e) {
+      console.error('Emergency-access request handling failed:', e.message);
+    }
+  })();
+  res.json(generic);
+}));
+
+app.get('/emergency/decide/:token', wrap(async (req, res) => {
+  const reqRow = await db.findEmergencyRequestByDecideToken(req.params.token);
+  if (!reqRow) {
+    return res.send(simplePage('Link no longer valid', '<h1>This link is no longer valid</h1><p>It may have already been used, or the request was already decided.</p>'));
+  }
+  const action = reqRow.approve_token === req.params.token ? 'approve' : 'deny';
+  const owner = await db.findUserById(reqRow.user_id);
+  const body =
+    '<h1>' + (action === 'approve' ? 'Approve' : 'Deny') + ' emergency access request?</h1>' +
+    '<p><strong>' + escHtml(reqRow.contact_email) + '</strong> has asked for emergency access to ' + escHtml(owner ? owner.name : 'this account') + '\'s Life Documents.</p>' +
+    (reqRow.message ? '<p class="doc-meta">&ldquo;' + escHtml(reqRow.message) + '&rdquo;</p>' : '') +
+    '<p>Nothing is shared until you confirm below.</p>' +
+    '<button id="go" class="' + (action === 'deny' ? 'deny' : '') + '">' + (action === 'approve' ? 'Yes, approve access' : 'Yes, deny this request') + '</button>' +
+    '<div id="result"></div>' +
+    '<script>' +
+    'document.getElementById("go").addEventListener("click", function () {' +
+    'this.disabled = true; this.textContent = "Working…";' +
+    'fetch("/api/emergency-access/decide/' + encodeURIComponent(req.params.token) + '", { method: "POST" })' +
+    '.then(function (r) { return r.json(); })' +
+    '.then(function (d) {' +
+    'document.getElementById("result").innerHTML = d.ok' +
+    '? "<p class=\\"msg ok\\">Done — " + (d.action === "approve" ? "access approved." : "request denied.") + "</p>"' +
+    ': "<p class=\\"msg err\\">" + (d.error || "Something went wrong.") + "</p>";' +
+    '})' +
+    '.catch(function () {' +
+    'document.getElementById("result").innerHTML = "<p class=\\"msg err\\">Network error — please try again.</p>";' +
+    '});' +
+    '});' +
+    '</script>';
+  res.send(simplePage('Emergency access request', body));
+}));
+
+app.post('/api/emergency-access/decide/:token', wrap(async (req, res) => {
+  const reqRow = await db.findEmergencyRequestByDecideToken(req.params.token);
+  if (!reqRow) return res.status(400).json({ error: 'This link is no longer valid.' });
+  const action = reqRow.approve_token === req.params.token ? 'approve' : 'deny';
+  await finalizeEmergencyDecision(reqRow, action, apiBaseUrl(req));
+  res.json({ ok: true, action });
+}));
+
+app.get('/emergency/view/:token', wrap(async (req, res) => {
+  const reqRow = await db.findEmergencyRequestByAccessToken(req.params.token);
+  if (!reqRow || !reqRow.access_expires_at || Number(reqRow.access_expires_at) < Date.now()) {
+    return res.send(simplePage('Link no longer valid', '<h1>This link is no longer valid</h1><p>It may have expired, or the account owner has revoked access.</p>'));
+  }
+  const owner = await db.findUserById(reqRow.user_id);
+  const docs = await db.listDocumentsByUser(reqRow.user_id);
+  const items = [];
+  for (const d of docs) {
+    const files = await db.listFilesByDocument(d.id);
+    const fileLinks = files.map(f =>
+      '<a class="file" href="/api/emergency-access/view/' + encodeURIComponent(req.params.token) + '/files/' + encodeURIComponent(f.id) + '">' + escHtml(f.name) + '</a>'
+    ).join(' &nbsp;·&nbsp; ');
+    items.push(
+      '<li><div class="doc-title">' + escHtml(d.title) + '</div>' +
+      '<div class="doc-meta">' + escHtml(d.type || '') + (d.expiry ? ' — expires ' + escHtml(d.expiry) : '') + '</div>' +
+      (d.number ? '<div class="doc-meta">No. ' + escHtml(d.number) + '</div>' : '') +
+      (fileLinks ? '<div style="margin-top:6px">' + fileLinks + '</div>' : '') +
+      '</li>'
+    );
+  }
+  const expiresText = new Date(Number(reqRow.access_expires_at)).toDateString();
+  const body =
+    '<h1>' + escHtml(owner ? owner.name : 'Shared') + '\'s documents</h1>' +
+    '<p>Shared with you as an emergency trusted contact. This link works until ' + escHtml(expiresText) + '.</p>' +
+    (docs.length ? '<ul class="doclist">' + items.join('') + '</ul>' : '<p>No documents have been added yet.</p>');
+  res.send(simplePage('Shared documents', body));
+}));
+
+app.get('/api/emergency-access/view/:token/files/:fileId', wrap(async (req, res) => {
+  const reqRow = await db.findEmergencyRequestByAccessToken(req.params.token);
+  if (!reqRow || !reqRow.access_expires_at || Number(reqRow.access_expires_at) < Date.now()) {
+    return res.status(403).json({ error: 'This link is no longer valid.' });
+  }
+  const f = await db.findFileById(req.params.fileId);
+  if (!f || f.user_id !== reqRow.user_id) return res.status(404).json({ error: 'Not found.' });
+  res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', 'inline; filename="' + f.name.replace(/"/g, '') + '"');
+  res.send(f.data);
+}));
+
 /* ---------------- daily reminder emails (Smart Reminder System) ---------------- */
 // Each document has its own milestone list (default 180/90/30/7/1 days
 // before expiry, customizable per document). A milestone fires exactly
@@ -1058,8 +1475,10 @@ async function runReminderSweep() {
     try {
       await sendMail(d.user_email, subject, body);
       await db.insertNotifiedMilestone({ id: uuid(), user_id: d.user_id, document_id: d.id, sent_date: todayISO, milestone: dl });
+      await db.insertNotificationLog({ id: uuid(), user_id: d.user_id, document_id: d.id, kind: 'reminder', detail: when, success: true, created_at: Date.now() }).catch(() => {});
     } catch (e) {
       console.error('Reminder email failed for document', d.id, e.message);
+      await db.insertNotificationLog({ id: uuid(), user_id: d.user_id, document_id: d.id, kind: 'reminder', detail: when, success: false, created_at: Date.now() }).catch(() => {});
     }
   }
 }

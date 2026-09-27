@@ -1127,8 +1127,10 @@ var STR = {
     toast_notifications_enabled:'Notifications enabled',
     sany_lede:'Ask a quick question about using Life Documents — how to add a document, set up App Lock, and more.',
     sany_placeholder:'Type your question…', sany_send_btn:'Send',
-    sany_greeting:'Hi, I’m Sany! Ask me how to do something in the app — like adding a document, setting up App Lock, or enabling notifications.',
+    sany_greeting:'Hi, I’m Sany! Ask me how to do something in the app, or ask me to find something in your vault — like "find my passport" or "electricity bill".',
     sany_fallback:'I don’t have an answer for that yet. Try asking about adding a document, renewing one, subscriptions, App Lock, notifications, or your account — or send a suggestion from Account and the admin will help.',
+    sany_search_none:'I couldn’t find anything in your vault matching “{q}”.',
+    sany_search_prompt:'What would you like me to find? Try a document, subscription, or bill name — like "passport" or "electricity".',
     sec_data:'Your data',
     backup_label:'Backup your data',
     backup_lede:'Download everything you\'ve stored — documents, subscriptions, and files — as a ZIP file.',
@@ -1301,8 +1303,10 @@ var STR = {
     toast_notifications_enabled:'নোটিফিকেশন চালু হয়েছে',
     sany_lede:'Life Documents ব্যবহার নিয়ে দ্রুত কোনো প্রশ্ন করুন — ডকুমেন্ট যোগ করা, App Lock সেট করা, ইত্যাদি।',
     sany_placeholder:'আপনার প্রশ্ন লিখুন…', sany_send_btn:'পাঠান',
-    sany_greeting:'হাই, আমি Sany! অ্যাপে কীভাবে কিছু করবেন জিজ্ঞাসা করুন — যেমন ডকুমেন্ট যোগ করা, App Lock সেট করা, বা নোটিফিকেশন চালু করা।',
+    sany_greeting:'হাই, আমি Sany! অ্যাপে কীভাবে কিছু করবেন জিজ্ঞাসা করুন, অথবা আপনার ভল্টে কিছু খুঁজতে বলুন — যেমন "find my passport" বা "electricity bill"।',
     sany_fallback:'এই বিষয়ে এখনো আমার উত্তর নেই। ডকুমেন্ট যোগ করা, নবায়ন, সাবস্ক্রিপশন, App Lock, নোটিফিকেশন, বা অ্যাকাউন্ট নিয়ে জিজ্ঞাসা করে দেখুন — অথবা Account থেকে একটা suggestion পাঠান, অ্যাডমিন সাহায্য করবেন।',
+    sany_search_none:'আপনার ভল্টে “{q}” এর সাথে মিলে এমন কিছু পাওয়া যায়নি।',
+    sany_search_prompt:'কী খুঁজে দেব? একটা ডকুমেন্ট, সাবস্ক্রিপশন বা বিলের নাম লিখে দেখুন — যেমন "passport" বা "electricity"।',
     sec_data:'আপনার তথ্য',
     backup_label:'আপনার তথ্য ব্যাকআপ করুন',
     backup_lede:'আপনার সংরক্ষিত সবকিছু — ডকুমেন্ট, সাবস্ক্রিপশন ও ফাইল — একটি ZIP ফাইল হিসেবে ডাউনলোড করুন।',
@@ -1420,7 +1424,7 @@ $('#forgotBtn').addEventListener('click',function(){showPanel('panelForgot');});
 $('#fgBack').addEventListener('click',function(){showPanel('panelSignIn');});
 
 function showLock(msg){
-  user=null;docs=[];isAdmin=false;pinUnlockedThisLoad=false;
+  user=null;docs=[];subs=[];subsLoadedOnce=false;isAdmin=false;pinUnlockedThisLoad=false;
   ['formDlg','viewDlg','acctDlg','emergDlg','trashDlg','adminDlg','profilesDlg','subFormDlg','subViewDlg','utilFormDlg','utilViewDlg','bundlesDlg','bundleItemsDlg','announceDlg','aboutDlg','suggestDlg','renewDlg','sanyDlg'].forEach(function(id){var d=$('#'+id);if(d.open)d.close();});
   $('#app').hidden=true;$('#pinLock').hidden=true;$('#lock').hidden=false;
   var resetToken=new URLSearchParams(location.search).get('reset');
@@ -3284,9 +3288,14 @@ function sortedSubs(list){
 // helpers split it for each tab's own rendering.
 function subsOnly(){ return subs.filter(function(s){return s.kind!=='utility';}); }
 function utilsOnly(){ return subs.filter(function(s){return s.kind==='utility';}); }
+// Tracked separately from subs.length so a user with zero subscriptions/
+// utility bills doesn't cause every Sany search to re-fetch on every message
+// (an empty `subs` array alone can't tell "never loaded" from "loaded, empty").
+var subsLoadedOnce=false;
 function loadSubs(){
   return api('/api/subscriptions').then(function(data){
     subs=data.subscriptions||[];
+    subsLoadedOnce=true;
     subs.forEach(function(s){ if(!Array.isArray(s.reminder_days))s.reminder_days=[]; });
     renderSubs();
     renderUtils();
@@ -3619,12 +3628,34 @@ var SANY_FAQ=[
     en:'Bundles let you group documents together for viewing (e.g. "Travel Documents") — open a document’s edit screen and add it to a bundle, or manage bundles from the Documents view.',
     bn:'Bundle দিয়ে ডকুমেন্ট একসাথে গ্রুপ করে দেখতে পারবেন (যেমন "Travel Documents") — ডকুমেন্ট এডিট থেকে বা Documents ভিউ থেকে bundle-এ যোগ করুন।'}
 ];
+// Plain text.indexOf(keyword) lets a short keyword accidentally match INSIDE
+// a longer unrelated word — e.g. the keyword 'new' (from the "add a
+// document" FAQ entry) is a substring of 'renew'/'renewed', so any question
+// about renewing used to also score a point for "how do I add a document"
+// and, on a tie, the earlier array entry won. This checks that the
+// character right before the match isn't itself an ASCII letter (blocking
+// that case), while still allowing a trailing 's' after the match so a
+// singular keyword like 'notification' still matches its own plural
+// "notifications" — only a *different* following letter (as in 'new'
+// glued onto the front of an unrelated word) is rejected. Bangla keyword
+// matching never hits this ASCII check, so it's unaffected.
+function matchesFaqKeyword(text,kw){
+  var k=String(kw||'').toLowerCase(); if(!k)return false;
+  var isAsciiLetter=function(c){ return !!c && /[a-z]/i.test(c); };
+  var idx=text.indexOf(k);
+  while(idx!==-1){
+    var after=text[idx+k.length];
+    if(!isAsciiLetter(text[idx-1]) && (!isAsciiLetter(after) || after==='s')) return true;
+    idx=text.indexOf(k, idx+1);
+  }
+  return false;
+}
 function sanyAnswer(q){
   var text=String(q||'').toLowerCase();
   var best=null,bestScore=0;
   SANY_FAQ.forEach(function(entry){
     var score=0;
-    entry.kw.forEach(function(k){ if(text.indexOf(k.toLowerCase())!==-1)score++; });
+    entry.kw.forEach(function(k){ if(matchesFaqKeyword(text,k))score++; });
     if(score>bestScore){bestScore=score;best=entry;}
   });
   if(!best) return t('sany_fallback');
@@ -3639,18 +3670,136 @@ function sanyAppendMsg(who,text){
   log.appendChild(row);
   log.scrollTop=log.scrollHeight;
 }
+/* ---------------- Sany: global search over the user's own vault ---------------- */
+// Sany used to be a pure FAQ matcher with no idea what's actually in the
+// user's vault — typing a document's own name (e.g. "passport") could
+// accidentally match an unrelated FAQ entry via keyword overlap (the "add a
+// document" entry's keyword list literally contains 'passport'/'nid') and
+// Sany would explain how to ADD a document instead of showing the one the
+// user already has. globalSearchItems() searches the user's real data
+// (documents, subscriptions, utility bills) by name/type/category — never
+// the private `number` field — and sanySend() now tries this first.
+function globalSearchItems(query){
+  var q=String(query||'').toLowerCase().trim();
+  if(q.length<2) return [];
+  // Match on individual words (OR'd, scored by how many hit) rather than
+  // requiring the whole phrase as one substring — otherwise a perfectly
+  // natural query like "electricity bill" would miss a bill named
+  // "Electricity — DESCO" just because the haystack never contains that
+  // exact two-word phrase together. Very short words (1-2 chars) are
+  // dropped so they don't turn into noisy, near-universal matches.
+  var words=q.split(/\s+/).filter(function(w){return w.length>=3;});
+  if(!words.length) words=[q];
+  function score(hay){
+    var s=0;
+    words.forEach(function(w){ if(hay.indexOf(w)!==-1)s++; });
+    return s;
+  }
+  var results=[];
+  docs.forEach(function(d){
+    var T=TYPES[d.type]||TYPES.other;
+    var hay=[d.title,T.label,T.labelBn||'',d.holder||'',categoryLabel(docCategory(d)),d.notes||''].join(' ').toLowerCase();
+    var sc=score(hay);
+    if(sc>0) results.push({kind:'document',id:d.id,icon:T.icon,title:d.title,sub:typeLabel(T),n:daysLeft(d),score:sc});
+  });
+  subsOnly().forEach(function(s){
+    var C=subCatOf(s);
+    var hay=[s.name,C.label,C.labelBn||'',s.notes||''].join(' ').toLowerCase();
+    var sc=score(hay);
+    if(sc>0) results.push({kind:'subscription',id:s.id,icon:C.icon,title:s.name,sub:subCategoryLabel(C),n:subDaysLeft(s),score:sc});
+  });
+  utilsOnly().forEach(function(s){
+    var C=utilCatOf(s);
+    var hay=[s.name,C.label,C.labelBn||'',s.notes||''].join(' ').toLowerCase();
+    var sc=score(hay);
+    if(sc>0) results.push({kind:'utility',id:s.id,icon:C.icon,title:s.name,sub:utilCategoryLabel(C),n:subDaysLeft(s),score:sc});
+  });
+  results.sort(function(a,b){
+    if(b.score!==a.score) return b.score-a.score;
+    var ka=a.n===null?1e9:a.n,kb=b.n===null?1e9:b.n;return ka-kb;
+  });
+  return results.slice(0,8);
+}
+// Explicit "please search" phrasing, bilingual — when present, Sany searches
+// even for a query that would otherwise also match an FAQ entry.
+var SANY_SEARCH_TRIGGERS=['find','search','where is','where\'s','where are','look for','show me','locate','খুঁজ','কোথায়','দেখাও','সার্চ'];
+function extractSearchQuery(q){
+  var text=String(q||'');
+  var lower=text.toLowerCase();
+  for(var i=0;i<SANY_SEARCH_TRIGGERS.length;i++){
+    var trig=SANY_SEARCH_TRIGGERS[i];
+    var idx=lower.indexOf(trig);
+    if(idx===-1)continue;
+    var rest=text.slice(idx+trig.length);
+    rest=rest.replace(/^[\s:?]*\b(my|is|the|for|আমার|টা|টি)\b/i,'').trim();
+    return rest;
+  }
+  return null;
+}
+function sanyAppendResults(query,results){
+  var log=$('#sanyLog'); if(!log)return;
+  var wrap=document.createElement('div');
+  wrap.style.cssText='align-self:flex-start;max-width:90%;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)';
+  var lead=document.createElement('div');
+  lead.style.whiteSpace='pre-wrap';
+  lead.textContent = LANG==='bn'
+    ? ('আপনার ভল্টে '+results.length+'টি মিল পেয়েছি:')
+    : ('Found '+plural(results.length,'match')+' in your vault:');
+  wrap.appendChild(lead);
+  var list=document.createElement('div');
+  list.style.cssText='display:flex;flex-direction:column;gap:6px;margin-top:8px';
+  results.forEach(function(r){
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);text-align:left;cursor:pointer;width:100%;font:inherit;color:inherit';
+    var when = r.n===null ? (LANG==='bn'?'তারিখ নেই':'no date') : whenText(r.n);
+    btn.innerHTML='<span aria-hidden="true">'+esc(r.icon)+'</span><span style="flex:1;min-width:0">'+
+      '<b>'+esc(r.title)+'</b><br><small>'+esc(r.sub)+' · '+esc(when)+'</small></span>'+
+      '<span aria-hidden="true">&rsaquo;</span>';
+    btn.addEventListener('click',function(){
+      $('#sanyDlg').close();
+      if(r.kind==='document')openDetail(r.id);
+      else if(r.kind==='subscription')openSubDetail(r.id);
+      else if(r.kind==='utility')openUtilDetail(r.id);
+    });
+    list.appendChild(btn);
+  });
+  wrap.appendChild(list);
+  log.appendChild(wrap);
+  log.scrollTop=log.scrollHeight;
+}
 var sanyGreeted=false;
 $('#sanyBtn').addEventListener('click',function(){
   $('#sanyDlg').showModal();
   if(!sanyGreeted){ sanyAppendMsg('sany',t('sany_greeting')); sanyGreeted=true; }
   setTimeout(function(){var i=$('#sanyInput');if(i)i.focus();},30);
 });
+function sanyRespond(q){
+  var explicitQuery=extractSearchQuery(q);
+  if(explicitQuery!==null){
+    if(explicitQuery.length<2){ sanyAppendMsg('sany',t('sany_search_prompt')); return; }
+    var forced=globalSearchItems(explicitQuery);
+    if(forced.length){ sanyAppendResults(explicitQuery,forced); }
+    else { sanyAppendMsg('sany',t('sany_search_none',{q:explicitQuery})); }
+    return;
+  }
+  // No explicit "find/search" phrasing — still try the user's own data first,
+  // since a real match on a document/subscription/bill name is a stronger,
+  // more specific signal than a generic FAQ keyword overlap (this is what
+  // fixes "passport" wrongly answering the "how do I add a document" FAQ).
+  var silent=globalSearchItems(q);
+  if(silent.length){ sanyAppendResults(q,silent); return; }
+  sanyAppendMsg('sany',sanyAnswer(q));
+}
 function sanySend(){
   var input=$('#sanyInput'); if(!input)return;
   var q=input.value.trim(); if(!q)return;
   sanyAppendMsg('user',q);
   input.value='';
-  setTimeout(function(){ sanyAppendMsg('sany',sanyAnswer(q)); },250);
+  var ensureSubs = subsLoadedOnce ? Promise.resolve() : loadSubs().catch(function(){});
+  ensureSubs.then(function(){
+    setTimeout(function(){ sanyRespond(q); },250);
+  });
 }
 $('#sanySendBtn').addEventListener('click',sanySend);
 $('#sanyInput').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); sanySend(); } });

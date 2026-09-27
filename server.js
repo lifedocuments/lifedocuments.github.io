@@ -10,11 +10,21 @@ const cron = require('node-cron');
 const webpush = require('web-push');
 const archiver = require('archiver');
 const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('./db');
 
 const app = express();
 app.set('trust proxy', true); // Render sits behind a proxy — needed so req.protocol/host are correct for the emergency-access links below
 app.use(cors());
+
+/* ---------------- Sign in with Google ---------------- */
+// Only the Client ID is needed (it's not secret — Google restricts it by
+// "Authorized JavaScript origins" registered on the OAuth client, not by
+// keeping the ID hidden). Until GOOGLE_CLIENT_ID is set as an env var here,
+// every Google route below responds with a clear "not configured yet"
+// error instead of crashing, and the frontend hides the Google button.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || null;
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 /* ---------------- mail ---------------- */
 // Render blocks outbound traffic on the SMTP ports (25/465/587) for free-tier
@@ -157,6 +167,9 @@ function publicUser(u) {
     lastLoginAt: u.last_login_at || null, lastLoginDevice: u.last_login_device || null,
     pinEnabled: !!u.pin_enabled,
     showIntro: (Number(u.intro_seen_version) || 0) < CURRENT_TOUR_VERSION,
+    hasAvatar: !!u.has_avatar,
+    hasPassword: !!u.password_hash,
+    hasGoogle: !!u.google_id,
   };
 }
 // Sensible default reminder milestones, only used when a document/subscription
@@ -230,6 +243,17 @@ async function auth(req, res, next) {
   }
   next();
 }
+// Confirms `currentPassword` against the account's password — used before
+// letting someone change their sign-in email or App Lock PIN. A Google-only
+// account (no password ever set) has nothing to compare against; being
+// signed in at all (a valid JWT) already proves who they are for these,
+// same as it does for every other authenticated route, so those accounts
+// skip this extra step-up check rather than being permanently blocked from
+// ever changing their email or PIN.
+async function confirmPassword(u, currentPassword) {
+  if (!u.password_hash) return true;
+  return bcrypt.compare(currentPassword || '', u.password_hash);
+}
 function isAdminEmail(email) {
   const admin = (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
   return !!admin && String(email || '').toLowerCase().trim() === admin;
@@ -256,8 +280,13 @@ app.post('/api/signup', wrap(async (req, res) => {
     return res.status(400).json({ error: 'Fill in your name, email, phone, and a password of at least 6 characters.' });
   }
   const emailNorm = String(email).toLowerCase().trim();
-  if (await db.findUserByEmail(emailNorm)) {
-    return res.status(409).json({ error: 'An account with that email already exists.' });
+  const already = await db.findUserByEmail(emailNorm);
+  if (already) {
+    return res.status(409).json({
+      error: already.password_hash
+        ? 'An account with that email already exists.'
+        : 'An account with that email already exists (signed in with Google) — use the Google button, or Forgot Password to set one.'
+    });
   }
   const hash = await bcrypt.hash(password, 10);
   const id = uuid();
@@ -268,7 +297,7 @@ app.post('/api/signup', wrap(async (req, res) => {
   const sid = uuid();
   await db.insertSession({ id: sid, user_id: id, device: simplifyDevice(req.headers['user-agent']), created_at: Date.now() }).catch(e => console.error('Could not record session for', id, e.message));
   const token = jwt.sign({ uid: id, sid }, process.env.JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user: publicUser({ id, name, email: emailNorm, phone, plan: 'free' }) });
+  res.json({ token, user: publicUser({ id, name, email: emailNorm, phone, plan: 'free', password_hash: hash }) });
 
   const appLink = process.env.FRONTEND_URL || '';
   sendMail(emailNorm, 'Welcome to Life Documents',
@@ -284,6 +313,7 @@ app.post('/api/login', wrap(async (req, res) => {
   const { email, password } = req.body || {};
   const u = await db.findUserByEmail(String(email || '').toLowerCase().trim());
   if (!u) return res.status(401).json({ error: 'No account with that email.' });
+  if (!u.password_hash) return res.status(401).json({ error: 'This account signs in with Google. Use the Google button, or set a password from Account first.' });
   const ok = await bcrypt.compare(password || '', u.password_hash);
   if (!ok) return res.status(401).json({ error: 'Wrong password.' });
   if (u.suspended) return res.status(403).json({ error: 'This account has been suspended. Contact support.' });
@@ -327,6 +357,178 @@ app.post('/api/reset', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Lets the frontend know whether Google sign-in is actually usable right
+// now (a Client ID has been set as an env var on the server) — the "Sign in
+// with Google" button only renders once this says yes, so there's never a
+// dead button before the app owner finishes setting it up.
+app.get('/api/config', (req, res) => {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID });
+});
+
+/* ---------------- Sign in with Google ---------------- */
+// Verifies the ID token Google's own client-side button hands back (a
+// signed JWT — nothing here ever sees or needs a Google password). Three
+// outcomes: this Google identity is already linked -> sign them straight
+// in; no link yet but an email/password account with the same address
+// exists -> link it now (this is the "sync" — the same vault becomes
+// reachable either way) and notify the account's email for transparency;
+// neither -> create a brand new account, same as a normal signup.
+app.post('/api/auth/google', wrap(async (req, res) => {
+  if (!googleClient) return res.status(501).json({ error: 'Google sign-in isn’t set up on this server yet.' });
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: 'Missing Google credential.' });
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    payload = ticket.getPayload();
+  } catch (e) {
+    return res.status(401).json({ error: 'Could not verify that Google sign-in. Please try again.' });
+  }
+  if (!payload || !payload.email) return res.status(401).json({ error: 'Could not read your Google account’s email.' });
+  if (payload.email_verified === false) return res.status(401).json({ error: 'Your Google email isn’t verified yet.' });
+  const emailNorm = String(payload.email).toLowerCase().trim();
+
+  let u = await db.findUserByGoogleId(payload.sub);
+  let justLinked = false;
+  if (!u) {
+    u = await db.findUserByEmail(emailNorm);
+    if (u) {
+      await db.updateUser(u.id, { google_id: payload.sub });
+      justLinked = true;
+    } else {
+      const id = uuid();
+      await db.insertUser({
+        id, name: payload.name || emailNorm.split('@')[0], email: emailNorm, phone: '',
+        password_hash: null, plan: 'free', reset_token: null, reset_expires: null,
+        created_at: Date.now(), google_id: payload.sub
+      });
+      await db.insertProfile({ id: uuid(), user_id: id, name: payload.name || emailNorm, relation: 'self', created_at: Date.now() }).catch(e => console.error('Could not create default profile for', id, e.message));
+    }
+    u = await db.findUserByEmail(emailNorm);
+  }
+  if (u.suspended) return res.status(403).json({ error: 'This account has been suspended. Contact support.' });
+
+  // First time we ever see this person, grab their Google profile photo as
+  // a starting avatar (bytes copied into our own database, same as any
+  // other uploaded avatar — never a live dependency on Google's own URL).
+  if (payload.picture && !u.has_avatar) {
+    try {
+      const imgRes = await fetch(payload.picture);
+      if (imgRes.ok) {
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        await db.setAvatar(u.id, buf, imgRes.headers.get('content-type') || 'image/jpeg');
+      }
+    } catch (e) { console.error('Could not fetch Google avatar for', u.id, e.message); }
+  }
+
+  const isNewAccount = !justLinked && u.created_at && (Date.now() - Number(u.created_at) < 10000);
+  if (justLinked) {
+    sendMail(u.email, 'Google is now linked to your Life Documents account',
+      'Your existing Life Documents account (' + u.email + ') can now also be opened by signing in with Google.\n\n' +
+      'If you did not do this, someone else may have access to your account — contact us right away using the "Send a suggestion" option in the app.'
+    ).catch(e => console.error('Google-linked notice failed for', u.email, e.message));
+  }
+
+  const device = simplifyDevice(req.headers['user-agent']);
+  const sid = uuid();
+  await db.insertSession({ id: sid, user_id: u.id, device, created_at: Date.now() }).catch(e => console.error('Could not record session for', u.id, e.message));
+  const token = jwt.sign({ uid: u.id, sid }, process.env.JWT_SECRET, { expiresIn: '30d' });
+  await db.touchLastLogin(u.id, device).catch(e => console.error('Could not record last login for', u.id, e.message));
+  u = await db.findUserById(u.id); // re-read so the response reflects the avatar/link we just wrote
+  res.json({ token, user: publicUser(u) });
+
+  if (isNewAccount) {
+    const appLink = process.env.FRONTEND_URL || '';
+    sendMail(u.email, 'Welcome to Life Documents',
+      'Hi ' + u.name + ',\n\n' +
+      'Your vault is set up. Add your NID, passport, trade licence, insurance, or any document with an expiry date, and you\'ll get an email reminder automatically before it lapses.' +
+      (appLink ? ('\n\nOpen your vault: ' + appLink) : '') +
+      '\n\n— Life Documents'
+    ).catch(e => console.error('Welcome email failed for', u.email, e.message));
+    notifyAdminPush('New signup on Life Documents', u.name + ' (' + u.email + ') just created an account via Google.', appLink);
+  }
+}));
+
+// Link Google to an ALREADY signed-in account (as opposed to /api/auth/google,
+// which can also create a brand-new account). Used from Account > Security.
+app.post('/api/me/link-google', auth, wrap(async (req, res) => {
+  if (!googleClient) return res.status(501).json({ error: 'Google sign-in isn’t set up on this server yet.' });
+  const { credential } = req.body || {};
+  if (!credential) return res.status(400).json({ error: 'Missing Google credential.' });
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    payload = ticket.getPayload();
+  } catch (e) {
+    return res.status(401).json({ error: 'Could not verify that Google sign-in. Please try again.' });
+  }
+  const existing = await db.findUserByGoogleId(payload.sub);
+  if (existing && existing.id !== req.userId) {
+    return res.status(409).json({ error: 'That Google account is already linked to a different Life Documents account.' });
+  }
+  await db.updateUser(req.userId, { google_id: payload.sub });
+  const u = await db.findUserById(req.userId);
+  sendMail(u.email, 'Google is now linked to your Life Documents account',
+    'Your Life Documents account (' + u.email + ') can now also be opened by signing in with Google.\n\n' +
+    'If you did not do this, someone else may have access to your account — contact us right away using the "Send a suggestion" option in the app.'
+  ).catch(e => console.error('Google-linked notice failed for', u.email, e.message));
+  res.json({ ok: true, user: publicUser(u) });
+}));
+
+app.delete('/api/me/link-google', auth, wrap(async (req, res) => {
+  const u = await db.findUserById(req.userId);
+  if (!u) return res.status(404).json({ error: 'Account not found.' });
+  if (!u.password_hash) {
+    return res.status(409).json({ error: 'Set a password first — otherwise disconnecting Google would lock you out of this account.' });
+  }
+  await db.updateUser(u.id, { google_id: null });
+  res.json({ ok: true });
+}));
+
+// Sets a password on a Google-only account, or changes an existing one.
+// Shares one route since the only difference is whether a currentPassword
+// needs checking first.
+app.put('/api/me/password', auth, wrap(async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Use a password of at least 6 characters.' });
+  const u = await db.findUserById(req.userId);
+  if (!u) return res.status(404).json({ error: 'Account not found.' });
+  const ok = await confirmPassword(u, currentPassword);
+  if (!ok) return res.status(401).json({ error: 'Your current password is wrong.' });
+  const hash = await bcrypt.hash(newPassword, 10);
+  await db.updateUser(u.id, { password_hash: hash });
+  sendMail(u.email, u.password_hash ? 'Your Life Documents password was changed' : 'A password was set on your Life Documents account',
+    (u.password_hash
+      ? 'Your account password was just changed.'
+      : 'A password was just set on your account, so you can now sign in with either Google or your email and this password.') +
+    '\n\nIf this was not you, someone else may have access to your account — contact us right away using the "Send a suggestion" option in the app.'
+  ).catch(e => console.error('Password-set notice failed for', u.email, e.message));
+  res.json({ ok: true });
+}));
+
+/* ---------------- profile picture ---------------- */
+const uploadAvatar = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } });
+
+app.post('/api/me/avatar', auth, uploadAvatar.single('avatar'), wrap(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image received.' });
+  if (!/^image\//.test(req.file.mimetype)) return res.status(400).json({ error: 'Choose an image file.' });
+  await db.setAvatar(req.userId, req.file.buffer, req.file.mimetype);
+  res.json({ ok: true });
+}));
+
+app.get('/api/me/avatar', auth, wrap(async (req, res) => {
+  const a = await db.findAvatar(req.userId);
+  if (!a || !a.avatar_data) return res.status(404).end();
+  res.setHeader('Content-Type', a.avatar_mime || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.send(a.avatar_data);
+}));
+
+app.delete('/api/me/avatar', auth, wrap(async (req, res) => {
+  await db.clearAvatar(req.userId);
+  res.json({ ok: true });
+}));
+
 app.get('/api/me', auth, wrap(async (req, res) => {
   const u = await db.findUserById(req.userId);
   if (!u) return res.status(404).json({ error: 'Account not found.' });
@@ -344,7 +546,7 @@ app.put('/api/me', auth, wrap(async (req, res) => {
   // would go to the new address instead) — so it needs the current password,
   // same as the PIN routes below, and the old inbox is told either way.
   if (emailChanging) {
-    const ok = await bcrypt.compare(currentPassword || '', u.password_hash);
+    const ok = await confirmPassword(u, currentPassword);
     if (!ok) return res.status(401).json({ error: 'Enter your current password to change your email.' });
     const existing = await db.findUserByEmail(newEmail);
     if (existing && existing.id !== u.id) return res.status(409).json({ error: 'An account with that email already exists.' });
@@ -371,7 +573,7 @@ app.put('/api/me/pin', auth, wrap(async (req, res) => {
   if (!/^\d{4,8}$/.test(String(pin || ''))) return res.status(400).json({ error: 'Use a PIN of 4 to 8 digits.' });
   const u = await db.findUserById(req.userId);
   if (!u) return res.status(404).json({ error: 'Account not found.' });
-  const ok = await bcrypt.compare(currentPassword || '', u.password_hash);
+  const ok = await confirmPassword(u, currentPassword);
   if (!ok) return res.status(401).json({ error: 'Your account password is wrong.' });
   const hash = await bcrypt.hash(String(pin), 10);
   await db.updateUser(u.id, { pin_hash: hash, pin_enabled: true });
@@ -382,7 +584,7 @@ app.delete('/api/me/pin', auth, wrap(async (req, res) => {
   const { currentPassword } = req.body || {};
   const u = await db.findUserById(req.userId);
   if (!u) return res.status(404).json({ error: 'Account not found.' });
-  const ok = await bcrypt.compare(currentPassword || '', u.password_hash);
+  const ok = await confirmPassword(u, currentPassword);
   if (!ok) return res.status(401).json({ error: 'Your account password is wrong.' });
   await db.updateUser(u.id, { pin_hash: null, pin_enabled: false });
   res.json({ ok: true });

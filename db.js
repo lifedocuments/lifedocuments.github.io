@@ -43,6 +43,21 @@ async function init() {
     -- Admin can suspend an account (blocks sign-in, keeps all their data)
     -- as a lighter-weight alternative to permanently deleting it.
     ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended BOOLEAN NOT NULL DEFAULT false;
+    -- Sign in with Google: an account created via Google has no password at
+    -- all (password_hash was NOT NULL before this), and an existing email/
+    -- password account can link its Google identity as an alternate way in
+    -- ("sync" across devices without retyping a password). google_id is
+    -- Google's own stable per-account subject id ("sub" in the ID token).
+    ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
+    -- Profile picture: bytes live in Postgres, same reasoning as uploaded
+    -- document files (Render's free-tier disk isn't persistent). has_avatar
+    -- is a cheap flag so ordinary user lookups (SELECT * FROM users, which
+    -- happens on nearly every authenticated request) never have to pull the
+    -- image bytes along for the ride — only GET /api/me/avatar does that.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS has_avatar BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_mime TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA;
     -- Family Vault: named profiles (Me, Wife, Children, Parents, ...) that
     -- documents and subscriptions can optionally be tagged with. Everything
     -- still lives under one account/login — this is just a grouping tag.
@@ -287,9 +302,9 @@ module.exports = {
   // ---- users ----
   async insertUser(u) {
     await pool.query(
-      `INSERT INTO users(id,name,email,phone,password_hash,plan,reset_token,reset_expires,created_at)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [u.id, u.name, u.email, u.phone, u.password_hash, u.plan, u.reset_token, u.reset_expires, u.created_at]
+      `INSERT INTO users(id,name,email,phone,password_hash,plan,reset_token,reset_expires,created_at,google_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [u.id, u.name, u.email, u.phone, u.password_hash || null, u.plan, u.reset_token, u.reset_expires, u.created_at, u.google_id || null]
     );
   },
   async findUserByEmail(email) {
@@ -298,6 +313,10 @@ module.exports = {
   },
   async findUserById(id) {
     const r = await pool.query('SELECT * FROM users WHERE id=$1', [id]);
+    return r.rows[0] || null;
+  },
+  async findUserByGoogleId(googleId) {
+    const r = await pool.query('SELECT * FROM users WHERE google_id=$1', [googleId]);
     return r.rows[0] || null;
   },
   async findUserByResetToken(token) {
@@ -662,6 +681,18 @@ module.exports = {
   },
   async deleteSubNotifiedBySubscription(subscriptionId) {
     await pool.query('DELETE FROM sub_notified WHERE subscription_id=$1', [subscriptionId]);
+  },
+
+  // ---- profile picture (bytes in Postgres, same reasoning as document files) ----
+  async findAvatar(userId) {
+    const r = await pool.query('SELECT avatar_data, avatar_mime FROM users WHERE id=$1', [userId]);
+    return r.rows[0] || null;
+  },
+  async setAvatar(userId, data, mime) {
+    await pool.query('UPDATE users SET avatar_data=$2, avatar_mime=$3, has_avatar=true WHERE id=$1', [userId, data, mime]);
+  },
+  async clearAvatar(userId) {
+    await pool.query('UPDATE users SET avatar_data=NULL, avatar_mime=NULL, has_avatar=false WHERE id=$1', [userId]);
   },
 
   // ---- files ----

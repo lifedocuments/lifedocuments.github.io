@@ -93,6 +93,8 @@ textarea.input{min-height:84px;resize:vertical}
 .linklike{background:none;border:0;padding:6px 0;color:var(--muted);text-decoration:underline;text-align:left;font-size:15px}
 .linklike.armed{color:var(--red);font-weight:700}
 .swap{display:flex;justify-content:center;gap:6px;margin-top:22px;font-size:15px;color:var(--muted)}
+.or-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--line)}
 .swap button{background:none;border:0;color:var(--brand);font-weight:700;text-decoration:underline;padding:0}
 .backend-link{display:block;text-align:center;margin-top:18px;font-size:13px;color:var(--muted);background:none;border:0;text-decoration:underline}
 
@@ -238,6 +240,9 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 .viewswitch{display:flex;gap:6px;margin:2px 0 18px}
 .viewswitch button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:700}
 .viewswitch button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* Account dialog tabs reuse .viewswitch styling but are tighter (4 short labels) */
+#acctTabs button{font-size:12px;padding:8px 2px;flex-basis:0}
+.acct-tab-panel{padding-top:2px}
 
 /* Milestone chips (Smart Reminder System) */
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
@@ -284,6 +289,10 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 
     <div id="panelSignIn">
       <p class="lede" data-i18n="si_lede">Sign in to your vault.</p>
+      <div id="googleSignInWrap" hidden style="margin-bottom:14px">
+        <div id="googleBtnSignIn" style="display:flex;justify-content:center"></div>
+        <p class="or-divider" data-i18n="or_divider">or</p>
+      </div>
       <label class="field"><span data-i18n="field_email">Email</span><input id="si-email" class="input" type="email" autocomplete="email"></label>
       <label class="field"><span data-i18n="field_password">Password</span><input id="si-pass" class="input" type="password" autocomplete="current-password"></label>
       <p id="siMsg" class="msg" role="alert"></p>
@@ -296,6 +305,10 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
 
     <div id="panelSignUp" hidden>
       <p class="lede" data-i18n="su_lede">Keep your passport, licences, insurance and property papers in one place, with real email reminders before they expire.</p>
+      <div id="googleSignUpWrap" hidden style="margin-bottom:14px">
+        <div id="googleBtnSignUp" style="display:flex;justify-content:center"></div>
+        <p class="or-divider" data-i18n="or_divider">or</p>
+      </div>
       <label class="field"><span data-i18n="field_your_name">Your name</span><input id="su-name" class="input" maxlength="60" autocomplete="name"></label>
       <label class="field"><span data-i18n="field_email">Email</span><input id="su-email" class="input" type="email" maxlength="120" autocomplete="email"></label>
       <label class="field"><span data-i18n="field_phone">Phone number</span><input id="su-phone" class="input" type="tel" maxlength="30" autocomplete="tel"></label>
@@ -505,105 +518,153 @@ dl.facts dd{margin:0;overflow-wrap:anywhere}
   <form id="acctForm">
     <div class="db">
       <div class="acct-profile" id="acctProfileHeader">
-        <span class="acct-avatar" id="acctAvatarInitials" aria-hidden="true"></span>
+        <span class="acct-avatar-wrap" style="position:relative;flex:none">
+          <span class="acct-avatar" id="acctAvatarInitials" aria-hidden="true"></span>
+          <img id="acctAvatarImg" alt="" hidden style="width:48px;height:48px;border-radius:50%;object-fit:cover;position:absolute;left:0;top:0">
+        </span>
         <span class="acct-profile-text">
           <span class="acct-profile-name" id="acctProfileName"></span>
           <span class="acct-profile-email" id="acctProfileEmail"></span>
         </span>
       </div>
-      <div class="field-section-label" data-i18n="sec_profile">Profile</div>
-      <div class="field">
-        <span data-i18n="acct_lang_label">Language</span>
-        <div class="cta" style="margin-top:6px"><button type="button" class="btn small" id="acctLangBtn"></button></div>
+      <div class="viewswitch" id="acctTabs" role="tablist" aria-label="Account sections" style="margin:14px 0 18px">
+        <button type="button" class="acct-tab" data-tab="profile" aria-pressed="true" data-i18n="acct_tab_profile">Profile</button>
+        <button type="button" class="acct-tab" data-tab="security" aria-pressed="false" data-i18n="acct_tab_security">Security</button>
+        <button type="button" class="acct-tab" data-tab="appdata" aria-pressed="false" data-i18n="acct_tab_app">App &amp; data</button>
+        <button type="button" class="acct-tab" data-tab="more" aria-pressed="false" data-i18n="acct_tab_more">More</button>
       </div>
-      <label class="field"><span data-i18n="field_name">Name</span><input id="ac-name" class="input" maxlength="60"></label>
-      <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
-      <label class="field" id="acCurrentPassRow" hidden><span data-i18n="field_current_password_ph">Your account password</span><input id="ac-current-password" class="input" type="password" autocomplete="current-password"></label>
-      <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
-      <p id="acctTrust" class="msg info" hidden></p>
-      <div class="field-section-label" data-i18n="sec_security">Security</div>
-      <div class="field" id="pinSection">
-        <span data-i18n="applock_title">App Lock (PIN)</span>
-        <p id="pinStatus" class="msg info" style="margin:6px 0"></p>
-        <div id="pinSetup" hidden>
-          <input id="ac-pin1" class="input" style="margin-bottom:8px" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" data-i18n-ph="field_new_pin_ph">
-          <input id="ac-pin2" class="input" style="margin-bottom:8px" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" data-i18n-ph="field_confirm_pin_ph">
-          <input id="ac-pin-pass" class="input" style="margin-bottom:8px" type="password" autocomplete="current-password" data-i18n-ph="field_current_password_ph">
-          <div class="cta">
-            <button type="button" class="btn small primary" id="pinSaveBtn" data-i18n="pin_save_btn">Save PIN</button>
-            <button type="button" class="btn small" id="pinCancelBtn" data-i18n="cancel">Cancel</button>
+
+      <div class="acct-tab-panel" data-tab-panel="profile">
+        <div class="field">
+          <span data-i18n="acct_photo_label">Profile picture</span>
+          <input type="file" id="ac-avatar-file" accept="image/*" hidden>
+          <div class="cta" style="margin-top:8px">
+            <button type="button" class="btn small" id="acctAvatarChangeBtn" data-i18n="acct_avatar_change_btn">Change photo</button>
+            <button type="button" class="btn small danger" id="acctAvatarRemoveBtn" hidden data-i18n="acct_avatar_remove_btn">Remove photo</button>
           </div>
-          <p id="pinSetupMsg" class="msg" role="alert"></p>
+          <p id="acctAvatarMsg" class="msg" role="alert"></p>
         </div>
-        <div class="cta" id="pinActions" style="margin-top:8px">
-          <button type="button" class="btn small" id="pinEnableBtn" data-i18n="pin_enable_btn">Turn on PIN lock</button>
-          <button type="button" class="btn small" id="pinChangeBtn" hidden data-i18n="pin_change_btn">Change PIN</button>
-          <button type="button" class="btn small danger" id="pinDisableBtn" hidden data-i18n="pin_disable_btn">Turn off PIN lock</button>
+        <div class="field">
+          <span data-i18n="acct_lang_label">Language</span>
+          <div class="cta" style="margin-top:6px"><button type="button" class="btn small" id="acctLangBtn"></button></div>
+        </div>
+        <label class="field"><span data-i18n="field_name">Name</span><input id="ac-name" class="input" maxlength="60"></label>
+        <label class="field"><span data-i18n="field_email">Email</span><input id="ac-email" class="input" type="email" maxlength="120"></label>
+        <label class="field" id="acCurrentPassRow" hidden><span data-i18n="field_current_password_ph">Your account password</span><input id="ac-current-password" class="input" type="password" autocomplete="current-password"></label>
+        <label class="field"><span data-i18n="field_phone">Phone number</span><input id="ac-phone" class="input" type="tel" maxlength="30"></label>
+        <p id="acctTrust" class="msg info" hidden></p>
+        <div class="df" style="padding:0;border:0;margin-top:18px"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
+      </div>
+
+      <div class="acct-tab-panel" data-tab-panel="security" hidden>
+        <div class="field-section-label" data-i18n="acct_password_section">Password</div>
+        <div class="field">
+          <p id="acctPasswordLede" class="msg info" style="margin:0 0 6px"></p>
+          <label class="field" style="padding:0"><span data-i18n="field_password">Password</span><input id="ac-new-pass1" class="input" type="password" autocomplete="new-password"></label>
+          <label class="field" style="padding:0"><span data-i18n="field_confirm_password">Confirm password</span><input id="ac-new-pass2" class="input" type="password" autocomplete="new-password"></label>
+          <label class="field" id="acPasswordCurrentRow" style="padding:0" hidden><span data-i18n="field_current_password_ph">Your account password</span><input id="ac-pass-current" class="input" type="password" autocomplete="current-password"></label>
+          <div class="cta" style="margin-top:8px"><button type="button" class="btn small primary" id="acctPasswordSaveBtn" data-i18n="acct_password_save_btn">Save password</button></div>
+          <p id="acctPasswordMsg" class="msg" role="alert"></p>
+        </div>
+        <div class="field-section-label" data-i18n="acct_connected_label">Connected accounts</div>
+        <div class="field">
+          <p class="msg info" style="margin:0 0 6px" data-i18n="acct_connected_lede">Link Google to this account so the same vault opens either way.</p>
+          <p id="acctGoogleStatus" class="msg info"></p>
+          <div class="cta" style="margin-top:6px">
+            <div id="googleBtnLink"></div>
+            <button type="button" class="btn small danger" id="acctUnlinkGoogleBtn" hidden data-i18n="acct_unlink_google_btn">Disconnect Google</button>
+          </div>
+          <p id="acctGoogleMsg" class="msg" role="alert"></p>
+        </div>
+        <div class="field-section-label" data-i18n="sec_security">App Lock</div>
+        <div class="field" id="pinSection">
+          <span data-i18n="applock_title">App Lock (PIN)</span>
+          <p id="pinStatus" class="msg info" style="margin:6px 0"></p>
+          <div id="pinSetup" hidden>
+            <input id="ac-pin1" class="input" style="margin-bottom:8px" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" data-i18n-ph="field_new_pin_ph">
+            <input id="ac-pin2" class="input" style="margin-bottom:8px" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" data-i18n-ph="field_confirm_pin_ph">
+            <input id="ac-pin-pass" class="input" style="margin-bottom:8px" type="password" autocomplete="current-password" data-i18n-ph="field_current_password_ph">
+            <div class="cta">
+              <button type="button" class="btn small primary" id="pinSaveBtn" data-i18n="pin_save_btn">Save PIN</button>
+              <button type="button" class="btn small" id="pinCancelBtn" data-i18n="cancel">Cancel</button>
+            </div>
+            <p id="pinSetupMsg" class="msg" role="alert"></p>
+          </div>
+          <div class="cta" id="pinActions" style="margin-top:8px">
+            <button type="button" class="btn small" id="pinEnableBtn" data-i18n="pin_enable_btn">Turn on PIN lock</button>
+            <button type="button" class="btn small" id="pinChangeBtn" hidden data-i18n="pin_change_btn">Change PIN</button>
+            <button type="button" class="btn small danger" id="pinDisableBtn" hidden data-i18n="pin_disable_btn">Turn off PIN lock</button>
+          </div>
+        </div>
+        <div class="field" id="sessionsSection">
+          <span data-i18n="sessions_label">Signed-in devices</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="sessions_lede">These are the devices currently signed in to your account.</p>
+          <ul class="files" id="sessionsList"></ul>
+          <div class="cta" style="margin-top:8px">
+            <button type="button" class="btn small danger" id="signOutOthersBtn" data-i18n="sessions_signout_others_btn">Sign out all other devices</button>
+          </div>
+          <p id="sessionsMsg" class="msg" role="alert"></p>
         </div>
       </div>
-      <div class="field" id="sessionsSection">
-        <span data-i18n="sessions_label">Signed-in devices</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="sessions_lede">These are the devices currently signed in to your account.</p>
-        <ul class="files" id="sessionsList"></ul>
-        <div class="cta" style="margin-top:8px">
-          <button type="button" class="btn small danger" id="signOutOthersBtn" data-i18n="sessions_signout_others_btn">Sign out all other devices</button>
+
+      <div class="acct-tab-panel" data-tab-panel="appdata" hidden>
+        <div class="field-section-label" data-i18n="sec_notifications">Notifications</div>
+        <div class="field">
+          <span data-i18n="acct_notify_label">Push notifications</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="acct_notify_lede">Get admin announcements as a notification on this device, even when the app is closed.</p>
+          <p id="userNotifyStatus" class="msg info"></p>
+          <button type="button" class="btn small" id="userNotifyBtn" data-i18n="acct_notify_btn">Enable notifications</button>
+          <p id="userNotifyMsg" class="msg" role="alert"></p>
         </div>
-        <p id="sessionsMsg" class="msg" role="alert"></p>
+        <div class="field" id="acctInstallField" hidden>
+          <span data-i18n="acct_install_label">Install the app</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="acct_install_lede">Add Life Documents to your home screen for quicker, full-screen access — no browser address bar.</p>
+          <button type="button" class="btn small" id="acctInstallBtn" data-i18n="acct_install_btn">Install app</button>
+        </div>
+        <div class="field-section-label" data-i18n="sec_data">Your data</div>
+        <div class="field">
+          <span data-i18n="backup_label">Backup your data</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="backup_lede">Download everything you've stored — documents, subscriptions, and files — as a ZIP file.</p>
+          <button type="button" class="btn small" id="backupBtn" data-i18n="backup_btn">Download all my data</button>
+          <p id="backupMsg" class="msg" role="alert"></p>
+        </div>
+        <div class="field">
+          <span data-i18n="trash_label">Recently deleted</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="trash_lede">A deleted document stays recoverable here for 30 days before it's gone for good.</p>
+          <button type="button" class="btn small" id="trashManageBtn" data-i18n="trash_manage_btn">View recently deleted</button>
+        </div>
+        <div class="field">
+          <span data-i18n="emerg_label">Emergency access</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="emerg_lede">Let a trusted contact request access to your documents if something happens to you. You always approve or deny each request yourself.</p>
+          <button type="button" class="btn small" id="emergManageBtn" data-i18n="emerg_manage_btn">Manage emergency access</button>
+        </div>
       </div>
-      <div class="field-section-label" data-i18n="sec_notifications">Notifications</div>
-      <div class="field">
-        <span data-i18n="acct_notify_label">Push notifications</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="acct_notify_lede">Get admin announcements as a notification on this device, even when the app is closed.</p>
-        <p id="userNotifyStatus" class="msg info"></p>
-        <button type="button" class="btn small" id="userNotifyBtn" data-i18n="acct_notify_btn">Enable notifications</button>
-        <p id="userNotifyMsg" class="msg" role="alert"></p>
+
+      <div class="acct-tab-panel" data-tab-panel="more" hidden>
+        <div class="field">
+          <span data-i18n="intro_replay_title">Guided tour</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
+          <button type="button" class="btn small" id="introReplayBtn" data-i18n="intro_replay_btn">Show intro again</button>
+        </div>
+        <div class="field">
+          <span data-i18n="acct_about_label">About</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="acct_about_lede">Learn what Life Documents is and how it helps.</p>
+          <button type="button" class="btn small" id="acctAboutBtn" data-i18n="acct_about_btn">About Life Documents</button>
+        </div>
+        <div class="field">
+          <span data-i18n="acct_share_label">Share the app</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="acct_share_lede">Invite friends and family to use Life Documents too.</p>
+          <button type="button" class="btn small" id="acctShareBtn" data-i18n="acct_share_btn">Share with Friends & Family</button>
+        </div>
+        <div class="field">
+          <span data-i18n="acct_suggest_label">Suggestions</span>
+          <p class="msg info" style="margin:6px 0" data-i18n="acct_suggest_lede">Have an idea or found a problem? Let us know — you can attach a photo or PDF.</p>
+          <button type="button" class="btn small" id="acctSuggestBtn" data-i18n="acct_suggest_btn">Send a suggestion</button>
+        </div>
       </div>
-      <div class="field-section-label" data-i18n="sec_data">Your data</div>
-      <div class="field">
-        <span data-i18n="backup_label">Backup your data</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="backup_lede">Download everything you've stored — documents, subscriptions, and files — as a ZIP file.</p>
-        <button type="button" class="btn small" id="backupBtn" data-i18n="backup_btn">Download all my data</button>
-        <p id="backupMsg" class="msg" role="alert"></p>
-      </div>
-      <div class="field">
-        <span data-i18n="trash_label">Recently deleted</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="trash_lede">A deleted document stays recoverable here for 30 days before it's gone for good.</p>
-        <button type="button" class="btn small" id="trashManageBtn" data-i18n="trash_manage_btn">View recently deleted</button>
-      </div>
-      <div class="field">
-        <span data-i18n="emerg_label">Emergency access</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="emerg_lede">Let a trusted contact request access to your documents if something happens to you. You always approve or deny each request yourself.</p>
-        <button type="button" class="btn small" id="emergManageBtn" data-i18n="emerg_manage_btn">Manage emergency access</button>
-      </div>
-      <div class="field-section-label" data-i18n="sec_more">More</div>
-      <div class="field">
-        <span data-i18n="intro_replay_title">Guided tour</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="intro_replay_lede">See the quick tour of the app's features again.</p>
-        <button type="button" class="btn small" id="introReplayBtn" data-i18n="intro_replay_btn">Show intro again</button>
-      </div>
-      <div class="field" id="acctInstallField" hidden>
-        <span data-i18n="acct_install_label">Install the app</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="acct_install_lede">Add Life Documents to your home screen for quicker, full-screen access — no browser address bar.</p>
-        <button type="button" class="btn small" id="acctInstallBtn" data-i18n="acct_install_btn">Install app</button>
-      </div>
-      <div class="field">
-        <span data-i18n="acct_about_label">About</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="acct_about_lede">Learn what Life Documents is and how it helps.</p>
-        <button type="button" class="btn small" id="acctAboutBtn" data-i18n="acct_about_btn">About Life Documents</button>
-      </div>
-      <div class="field">
-        <span data-i18n="acct_share_label">Share the app</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="acct_share_lede">Invite friends and family to use Life Documents too.</p>
-        <button type="button" class="btn small" id="acctShareBtn" data-i18n="acct_share_btn">Share with Friends & Family</button>
-      </div>
-      <div class="field">
-        <span data-i18n="acct_suggest_label">Suggestions</span>
-        <p class="msg info" style="margin:6px 0" data-i18n="acct_suggest_lede">Have an idea or found a problem? Let us know — you can attach a photo or PDF.</p>
-        <button type="button" class="btn small" id="acctSuggestBtn" data-i18n="acct_suggest_btn">Send a suggestion</button>
-      </div>
+
       <p id="acctMsg" class="msg" role="alert"></p>
     </div>
-    <div class="df"><button class="btn primary" type="submit" data-i18n="save">Save</button><button class="btn" type="button" data-close data-i18n="cancel">Cancel</button></div>
   </form>
 </dialog>
 
@@ -1043,6 +1104,21 @@ var STR = {
     form_title_add:'Add document', form_title_edit:'Edit document',
     sec_basics:'Type & name', sec_details:'Details', sec_dates:'Dates', sec_reminders:'Reminders', sec_notes_files:'Notes & files',
     sec_profile:'Profile', sec_security:'Security', sec_notifications:'Notifications', sec_more:'More',
+    acct_tab_profile:'Profile', acct_tab_security:'Security', acct_tab_app:'App & data', acct_tab_more:'More',
+    or_divider:'or',
+    acct_photo_label:'Profile picture', acct_avatar_change_btn:'Change photo', acct_avatar_remove_btn:'Remove photo',
+    toast_avatar_updated:'Profile picture updated', toast_avatar_removed:'Profile picture removed',
+    err_avatar_choose_image:'Choose an image file.',
+    acct_connected_label:'Connected accounts', acct_connected_lede:'Link Google to this account so the same vault opens either way.',
+    acct_google_linked:'Google is linked to this account.', acct_google_not_linked:'Google is not linked yet.',
+    acct_link_google_btn:'Link Google', acct_unlink_google_btn:'Disconnect Google',
+    toast_google_linked:'Google linked', toast_google_unlinked:'Google disconnected',
+    btn_disconnect_confirm:'Tap again to disconnect',
+    acct_password_section:'Password',
+    acct_password_lede_set:'Set a password so you can also sign in with your email, not just Google.',
+    acct_password_lede_change:'Change your account password.',
+    acct_password_save_btn:'Save password',
+    toast_password_set:'Password set', toast_password_changed:'Password changed',
     field_type:'Type', field_name:'Name', field_name_ph:'e.g. My passport',
     field_belongs:'Belongs to', field_belongs_ph:'Me, Shop, Father…', field_docnum:'Document number',
     field_issue:'Issue date', field_expiry:'Expiry date', field_expiry_hint:'Leave empty if it never expires.',
@@ -1225,6 +1301,21 @@ var STR = {
     form_title_add:'ডকুমেন্ট যোগ করুন', form_title_edit:'ডকুমেন্ট সম্পাদনা করুন',
     sec_basics:'ধরন ও নাম', sec_details:'বিস্তারিত', sec_dates:'তারিখ', sec_reminders:'রিমাইন্ডার', sec_notes_files:'নোট ও ফাইল',
     sec_profile:'প্রোফাইল', sec_security:'নিরাপত্তা', sec_notifications:'নোটিফিকেশন', sec_more:'আরও',
+    acct_tab_profile:'প্রোফাইল', acct_tab_security:'নিরাপত্তা', acct_tab_app:'অ্যাপ ও ডেটা', acct_tab_more:'আরও',
+    or_divider:'অথবা',
+    acct_photo_label:'প্রোফাইল ছবি', acct_avatar_change_btn:'ছবি পরিবর্তন করুন', acct_avatar_remove_btn:'ছবি সরান',
+    toast_avatar_updated:'প্রোফাইল ছবি আপডেট হয়েছে', toast_avatar_removed:'প্রোফাইল ছবি সরানো হয়েছে',
+    err_avatar_choose_image:'একটি ছবি ফাইল বেছে নিন।',
+    acct_connected_label:'সংযুক্ত অ্যাকাউন্ট', acct_connected_lede:'আপনার Google অ্যাকাউন্ট এখানে যুক্ত করুন, যাতে যেকোনো মাধ্যমে সাইন ইন করলেও একই ভল্ট খোলে।',
+    acct_google_linked:'Google এই অ্যাকাউন্টের সাথে যুক্ত আছে।', acct_google_not_linked:'Google এখনো যুক্ত করা হয়নি।',
+    acct_link_google_btn:'Google যুক্ত করুন', acct_unlink_google_btn:'Google বিচ্ছিন্ন করুন',
+    toast_google_linked:'Google যুক্ত হয়েছে', toast_google_unlinked:'Google বিচ্ছিন্ন করা হয়েছে',
+    btn_disconnect_confirm:'বিচ্ছিন্ন করতে আবার চাপুন',
+    acct_password_section:'পাসওয়ার্ড',
+    acct_password_lede_set:'একটি পাসওয়ার্ড সেট করুন, যাতে Google ছাড়াও আপনার ইমেইল দিয়ে সাইন ইন করতে পারেন।',
+    acct_password_lede_change:'আপনার অ্যাকাউন্ট পাসওয়ার্ড পরিবর্তন করুন।',
+    acct_password_save_btn:'পাসওয়ার্ড সংরক্ষণ করুন',
+    toast_password_set:'পাসওয়ার্ড সেট হয়েছে', toast_password_changed:'পাসওয়ার্ড পরিবর্তন হয়েছে',
     field_type:'ধরন', field_name:'নাম', field_name_ph:'যেমন: আমার পাসপোর্ট',
     field_belongs:'কার নামে', field_belongs_ph:'আমি, দোকান, বাবা…', field_docnum:'ডকুমেন্ট নম্বর',
     field_issue:'ইস্যুর তারিখ', field_expiry:'মেয়াদ শেষের তারিখ', field_expiry_hint:'কখনো মেয়াদ শেষ না হলে খালি রাখুন।',
@@ -1394,6 +1485,10 @@ function setLang(l){
   // explicit refresh too, or it's left showing the old language.
   if($('#acctDlg').open){
     if(typeof refreshSessionsUI==='function')refreshSessionsUI();
+    if(typeof refreshPinUI==='function')refreshPinUI();
+    if(typeof refreshAvatarUI==='function')refreshAvatarUI();
+    if(typeof refreshPasswordUI==='function')refreshPasswordUI();
+    if(typeof refreshConnectedAccountsUI==='function')refreshConnectedAccountsUI();
   }
   if(typeof refreshInstallUi==='function')refreshInstallUi();
 }
@@ -1475,7 +1570,7 @@ $('#siGo').addEventListener('click',function(){
   if(!email||!pass){m.textContent=t('err_enter_email_pass');return;}
   btn.disabled=true;btn.textContent=t('signing_in');
   api('/api/login',{method:'POST',body:JSON.stringify({email:email,password:pass})}).then(function(data){
-    TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;pinUnlockedThisLoad=true;enterApp();
+    handleAuthSuccess(data);
   }).catch(function(e){m.textContent=e.error||t('err_could_not_sign_in');}).then(function(){btn.disabled=false;btn.textContent=t('si_go');});
 });
 $('#si-pass').addEventListener('keydown',function(e){if(e.key==='Enter')$('#siGo').click();});
@@ -1491,7 +1586,7 @@ $('#suGo').addEventListener('click',function(){
   if(p1!==p2){m.textContent=t('err_pass_match');return;}
   btn.disabled=true;btn.textContent=t('creating');
   api('/api/signup',{method:'POST',body:JSON.stringify({name:name,email:email,phone:phone,password:p1})}).then(function(data){
-    TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;pinUnlockedThisLoad=true;enterApp();
+    handleAuthSuccess(data);
     // Notifications default to "on" at signup: ask right away, right after
     // the account-creation tap (the platform requires a user gesture — this
     // is the closest thing to "enabled by default"). Silent: a denied
@@ -2274,6 +2369,13 @@ $('#userNotifyBtn').addEventListener('click',function(){
   enablePushNotifications('userNotifyStatus','userNotifyMsg','userNotifyBtn',false,userNotifyLabels());
 });
 var acctOriginalEmail='';
+function setAcctTab(tab){
+  document.querySelectorAll('.acct-tab-panel').forEach(function(p){p.hidden=(p.dataset.tabPanel!==tab);});
+  document.querySelectorAll('#acctTabs button').forEach(function(b){b.setAttribute('aria-pressed', b.dataset.tab===tab?'true':'false');});
+}
+document.querySelectorAll('#acctTabs button').forEach(function(b){
+  b.addEventListener('click',function(){ setAcctTab(b.dataset.tab); });
+});
 $('#acctBtn').addEventListener('click',function(){
   $('#ac-name').value=user.name||'';$('#ac-email').value=user.email||'';$('#ac-phone').value=user.phone||'';
   acctOriginalEmail=user.email||'';
@@ -2291,7 +2393,17 @@ $('#acctBtn').addEventListener('click',function(){
   refreshNotifyStatus('userNotifyStatus',userNotifyLabels());
   $('#backupMsg').textContent='';
   refreshSessionsUI();
+  setAcctTab('profile');
+  loadUserAvatarImg();
+  refreshAvatarUI();
+  refreshPasswordUI();
+  refreshConnectedAccountsUI();
   $('#acctDlg').showModal();
+});
+$('#acctDlg').addEventListener('close',function(){
+  googleCredentialMode='signin';
+  var img=$('#acctAvatarImg');
+  if(img.src && img.src.indexOf('blob:')===0) URL.revokeObjectURL(img.src);
 });
 $('#ac-email').addEventListener('input',function(){
   var changed=this.value.trim().toLowerCase()!==acctOriginalEmail.toLowerCase();
@@ -2311,6 +2423,124 @@ $('#acctForm').addEventListener('submit',function(e){
     $('#ac-current-password').value='';
     $('#acctDlg').close();toast(t('toast_account_updated'));
   }).catch(function(e){m.textContent=e.error||t('err_could_not_save');});
+});
+
+/* ---------------- Profile picture (Account dialog) ---------------- */
+function loadUserAvatarImg(){
+  var img=$('#acctAvatarImg'), initials=$('#acctAvatarInitials');
+  if(img.src && img.src.indexOf('blob:')===0){ URL.revokeObjectURL(img.src); img.src=''; }
+  if(!user || !user.hasAvatar || !API_BASE || !TOKEN){ img.hidden=true; initials.style.display=''; return; }
+  fetch(API_BASE.replace(/\/$/,'')+'/api/me/avatar', {headers:{'Authorization':'Bearer '+TOKEN}}).then(function(r){
+    if(!r.ok) throw new Error('no avatar');
+    return r.blob();
+  }).then(function(blob){
+    img.src=URL.createObjectURL(blob); img.hidden=false; initials.style.display='none';
+  }).catch(function(){ img.hidden=true; initials.style.display=''; });
+}
+function refreshAvatarUI(){
+  $('#acctAvatarMsg').textContent='';
+  $('#acctAvatarRemoveBtn').hidden=!(user&&user.hasAvatar);
+  $('#acctAvatarRemoveBtn').dataset.armed='0';
+  $('#acctAvatarRemoveBtn').textContent=t('acct_avatar_remove_btn');
+  $('#acctAvatarRemoveBtn').classList.remove('armed');
+}
+$('#acctAvatarChangeBtn').addEventListener('click',function(){ $('#ac-avatar-file').click(); });
+$('#ac-avatar-file').addEventListener('change',function(){
+  var f=this.files&&this.files[0];
+  this.value='';
+  if(!f) return;
+  var msg=$('#acctAvatarMsg'); msg.textContent='';
+  if(!/^image\//.test(f.type)){ msg.textContent=t('err_avatar_choose_image'); return; }
+  var img=new Image();
+  var reader=new FileReader();
+  reader.onload=function(){
+    img.onload=function(){
+      var MAX=512;
+      var w=img.width,h=img.height;
+      var scale=Math.min(1, MAX/Math.max(w,h));
+      var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+      var canvas=document.createElement('canvas');
+      canvas.width=cw;canvas.height=ch;
+      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
+      canvas.toBlob(function(blob){
+        if(!blob){ msg.textContent=t('err_avatar_choose_image'); return; }
+        var fd=new FormData();
+        fd.append('avatar', blob, 'avatar.jpg');
+        api('/api/me/avatar',{method:'POST',body:fd}).then(function(){
+          user.hasAvatar=true;
+          loadUserAvatarImg();
+          refreshAvatarUI();
+          toast(t('toast_avatar_updated'));
+        }).catch(function(e){ msg.textContent=e.error||t('err_could_not_save'); });
+      }, 'image/jpeg', 0.88);
+    };
+    img.onerror=function(){ msg.textContent=t('err_avatar_choose_image'); };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(f);
+});
+$('#acctAvatarRemoveBtn').addEventListener('click',function(){
+  var b=this;
+  if(b.dataset.armed!=='1'){
+    b.dataset.armed='1';b.textContent=t('btn_delete_confirm');b.classList.add('armed');
+    setTimeout(function(){ if(b&&b.dataset){ b.dataset.armed='0';b.textContent=t('acct_avatar_remove_btn');b.classList.remove('armed'); } },4000);
+    return;
+  }
+  api('/api/me/avatar',{method:'DELETE'}).then(function(){
+    user.hasAvatar=false;
+    loadUserAvatarImg();
+    refreshAvatarUI();
+    toast(t('toast_avatar_removed'));
+  }).catch(function(e){ $('#acctAvatarMsg').textContent=e.error||t('err_could_not_save'); });
+});
+
+/* ---------------- Password set/change (Account dialog) ---------------- */
+function refreshPasswordUI(){
+  $('#acctPasswordMsg').textContent='';
+  $('#ac-new-pass1').value='';$('#ac-new-pass2').value='';$('#ac-pass-current').value='';
+  var lede=$('#acctPasswordLede');
+  lede.textContent = (user&&user.hasPassword) ? t('acct_password_lede_change') : t('acct_password_lede_set');
+  $('#acPasswordCurrentRow').hidden = !(user&&user.hasPassword);
+}
+$('#acctPasswordSaveBtn').addEventListener('click',function(){
+  var msg=$('#acctPasswordMsg'); msg.textContent='';
+  var p1=$('#ac-new-pass1').value, p2=$('#ac-new-pass2').value;
+  if(p1.length<6){ msg.textContent=t('err_pass_min'); return; }
+  if(p1!==p2){ msg.textContent=t('err_pass_match'); return; }
+  var payload={newPassword:p1};
+  if(user&&user.hasPassword) payload.currentPassword=$('#ac-pass-current').value;
+  api('/api/me/password',{method:'PUT',body:JSON.stringify(payload)}).then(function(){
+    var wasSet=!(user&&user.hasPassword);
+    user.hasPassword=true;
+    refreshPasswordUI();
+    toast(wasSet ? t('toast_password_set') : t('toast_password_changed'));
+  }).catch(function(e){ msg.textContent=e.error||t('err_could_not_save'); });
+});
+
+/* ---------------- Connected accounts: Google link/unlink (Account dialog) ---------------- */
+var googleCredentialMode='signin';
+function refreshConnectedAccountsUI(){
+  $('#acctGoogleMsg').textContent='';
+  var status=$('#acctGoogleStatus');
+  status.textContent = (user&&user.hasGoogle) ? t('acct_google_linked') : t('acct_google_not_linked');
+  $('#acctUnlinkGoogleBtn').hidden = !(user&&user.hasGoogle);
+  $('#acctUnlinkGoogleBtn').dataset.armed='0';
+  $('#acctUnlinkGoogleBtn').textContent=t('acct_unlink_google_btn');
+  $('#acctUnlinkGoogleBtn').classList.remove('armed');
+  renderGoogleLinkButtonIfNeeded();
+}
+$('#acctUnlinkGoogleBtn').addEventListener('click',function(){
+  var b=this;
+  if(b.dataset.armed!=='1'){
+    b.dataset.armed='1';b.textContent=t('btn_disconnect_confirm');b.classList.add('armed');
+    setTimeout(function(){ if(b&&b.dataset){ b.dataset.armed='0';b.textContent=t('acct_unlink_google_btn');b.classList.remove('armed'); } },4000);
+    return;
+  }
+  api('/api/me/link-google',{method:'DELETE'}).then(function(){
+    user.hasGoogle=false;
+    refreshConnectedAccountsUI();
+    toast(t('toast_google_unlinked'));
+  }).catch(function(e){ $('#acctGoogleMsg').textContent=e.error||t('err_could_not_save'); });
 });
 
 /* ---------------- App Lock management (Account dialog) ---------------- */
@@ -4078,6 +4308,69 @@ $('#renewSaveBtn').addEventListener('click',function(){
     if($('#renewSaveBtn')){$('#renewSaveBtn').disabled=false;$('#renewSaveBtn').textContent=t('renew_save_btn');}
   });
 });
+
+/* ---------------- Sign in with Google ---------------- */
+// The Client ID isn't secret (Google restricts it by the "Authorized
+// JavaScript origins" registered on the OAuth client, not by keeping the ID
+// hidden), so it's fine to fetch it from the backend and use it here. Until
+// GOOGLE_CLIENT_ID is set as an env var on the server, /api/config returns
+// null and neither button ever appears — no dead "Sign in with Google"
+// button before the app owner finishes setting it up.
+var GOOGLE_CLIENT_ID=null;
+var gsiLoaded=false;
+function handleAuthSuccess(data){
+  TOKEN=data.token;localStorage.setItem('ld_token',TOKEN);user=data.user;pinUnlockedThisLoad=true;enterApp();
+}
+// One GSI client is initialized for the whole app, so one callback has to
+// serve two purposes: signing in/up on the lock screen, and linking Google
+// to an already-signed-in account from Account > Security. googleCredentialMode
+// (set right before the "link" button is rendered, reset when the Account
+// dialog closes) says which one a given credential response is for.
+function handleGoogleCredential(resp){
+  if(googleCredentialMode==='link'){
+    var lm=$('#acctGoogleMsg'); if(lm) lm.textContent='';
+    api('/api/me/link-google',{method:'POST',body:JSON.stringify({credential:resp.credential})}).then(function(data){
+      user.hasGoogle=true;
+      refreshConnectedAccountsUI();
+      toast(t('toast_google_linked'));
+    }).catch(function(e){ if(lm) lm.textContent=e.error||t('err_could_not_save'); });
+    return;
+  }
+  api('/api/auth/google',{method:'POST',body:JSON.stringify({credential:resp.credential})}).then(function(data){
+    handleAuthSuccess(data);
+  }).catch(function(e){
+    var m = $('#panelSignUp').hidden ? $('#siMsg') : $('#suMsg');
+    if(m) m.textContent = e.error || t('err_could_not_sign_in');
+  });
+}
+function renderGoogleLinkButtonIfNeeded(){
+  var w=$('#googleBtnLink');
+  if(!w) return;
+  w.innerHTML='';
+  if(!gsiLoaded || !user || user.hasGoogle) return;
+  googleCredentialMode='link';
+  google.accounts.id.renderButton(w,{theme:'outline',size:'large',width:240,text:'signin_with'});
+}
+function initGoogleSignIn(){
+  api('/api/config').then(function(cfg){
+    if(!cfg || !cfg.googleClientId) return;
+    GOOGLE_CLIENT_ID=cfg.googleClientId;
+    var s=document.createElement('script');
+    s.src='https://accounts.google.com/gsi/client';
+    s.async=true;s.defer=true;
+    s.onload=function(){
+      if(!window.google||!google.accounts||!google.accounts.id)return;
+      google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:handleGoogleCredential});
+      var w1=$('#googleBtnSignIn'), w2=$('#googleBtnSignUp');
+      if(w1){ google.accounts.id.renderButton(w1,{theme:'outline',size:'large',width:280,text:'signin_with'}); $('#googleSignInWrap').hidden=false; }
+      if(w2){ google.accounts.id.renderButton(w2,{theme:'outline',size:'large',width:280,text:'signup_with'}); $('#googleSignUpWrap').hidden=false; }
+      gsiLoaded=true;
+      if($('#acctDlg').open) renderGoogleLinkButtonIfNeeded();
+    };
+    document.head.appendChild(s);
+  }).catch(function(){ /* backend unreachable, or Google not configured yet — no button, not fatal */ });
+}
+initGoogleSignIn();
 
 /* ---------------- boot ---------------- */
 var resetToken=new URLSearchParams(location.search).get('reset');
